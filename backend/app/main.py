@@ -24,7 +24,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="AI Job Hunter API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="AI Job Hunter API", version="0.3.0", lifespan=lifespan)
 
 
 def to_job_out(record: JobRecord) -> JobOut:
@@ -66,15 +66,13 @@ def save_job(db: Session, payload: JobIn, preferences: Preferences) -> tuple[Job
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "ai-job-hunter", "version": "0.2.0"}
+    return {"status": "ok", "service": "ai-job-hunter", "version": "0.3.0"}
 
 
 @app.get("/api/v1/preferences")
 def get_preferences(db: Session = Depends(get_db)):
     record = db.get(PreferencesRecord, 1)
-    if record is None:
-        return Preferences().model_dump()
-    return record.payload
+    return record.payload if record else Preferences().model_dump()
 
 
 @app.put("/api/v1/preferences")
@@ -124,28 +122,49 @@ def list_jobs(status: str | None = None, db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/discovery/run")
-async def run_discovery(db: Session = Depends(get_db)):
-    from app.discovery import discover_all
+async def run_discovery():
+    from app.discovery_service import run_discovery_cycle
+    return await run_discovery_cycle()
 
-    board_records = db.scalars(select(BoardSourceRecord)).all()
-    boards = [
-        BoardSource(provider=row.provider, slug=row.slug, company_name=row.company_name)
-        for row in board_records
-    ]
-    preferences_record = db.get(PreferencesRecord, 1)
-    preferences = Preferences.model_validate(
-        preferences_record.payload if preferences_record else {}
-    )
 
-    discovered = await discover_all(boards)
-    inserted = duplicates = 0
-    for job in discovered:
-        _, created = save_job(db, job, preferences)
-        if created:
-            inserted += 1
-        else:
-            duplicates += 1
-    return {"discovered": len(discovered), "inserted": inserted, "duplicates": duplicates}
+@app.get("/api/v1/monitoring/status")
+def monitoring_status(db: Session = Depends(get_db)):
+    from app.models import NotificationRecord
+    from sqlalchemy import func
+    from app.celery_app import DISCOVERY_INTERVAL_SECONDS
+
+    total_jobs = db.scalar(select(func.count()).select_from(JobRecord)) or 0
+    matched_jobs = db.scalar(
+        select(func.count()).select_from(JobRecord).where(
+            JobRecord.screening["status"].as_string().in_(["matched", "review"])
+        )
+    ) or 0
+    sent_notifications = db.scalar(
+        select(func.count()).select_from(NotificationRecord).where(
+            NotificationRecord.delivered.is_(True),
+            NotificationRecord.channel == "telegram",
+        )
+    ) or 0
+    return {
+        "scheduler_interval_seconds": DISCOVERY_INTERVAL_SECONDS,
+        "registered_boards": db.scalar(select(func.count()).select_from(BoardSourceRecord)) or 0,
+        "jobs_stored": total_jobs,
+        "jobs_needing_attention": matched_jobs,
+        "telegram_notifications_sent": sent_notifications,
+        "telegram_configured": bool(
+            __import__("os").getenv("TELEGRAM_BOT_TOKEN")
+            and __import__("os").getenv("TELEGRAM_CHAT_ID")
+        ),
+    }
+
+
+@app.post("/api/v1/notifications/telegram/test")
+def test_telegram():
+    from app.notifications import send_telegram_message
+    ok, error = send_telegram_message("✅ <b>AI Job Hunter</b> Telegram notifications are connected.")
+    if not ok:
+        raise HTTPException(400, error or "Telegram message failed")
+    return {"sent": True}
 
 
 @app.post("/api/v1/applications/{source_job_id}/approve")
@@ -158,7 +177,6 @@ def approve_application(source_job_id: str, db: Session = Depends(get_db)):
     status = (record.screening or {}).get("status")
     if status not in {"matched", "review"}:
         raise HTTPException(400, "This job is not eligible for review")
-    # This records approval for preparation only; no external form is submitted.
     return {
         "status": "approved_for_preparation",
         "job": record.title,

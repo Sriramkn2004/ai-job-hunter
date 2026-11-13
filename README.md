@@ -25,6 +25,7 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 3. Run `docker compose up --build -d`.
 4. Open `http://localhost:8000/docs`.
 5. Register a Greenhouse or Lever board using `POST /api/v1/sources/boards`.
+6. List and manage registered boards with `GET` and `DELETE /api/v1/sources/boards`.
 6. Check `GET /api/v1/monitoring/status` and trigger a one-off scan with `POST /api/v1/discovery/run`.
 
 The worker and scheduler are separate services. They continue running when your laptop is off only after the Docker stack is deployed to an always-on cloud host.
@@ -40,7 +41,9 @@ The worker and scheduler are separate services. They continue running when your 
 ## API endpoints
 - `GET /health` — API health
 - `GET/PUT /api/v1/preferences` — candidate filters
-- `POST /api/v1/sources/boards` — register a Greenhouse or Lever board
+- `POST /api/v1/sources/boards` — register a Greenhouse or Lever board (idempotent)
+- `GET /api/v1/sources/boards` — list registered boards
+- `DELETE /api/v1/sources/boards/{board_id}` — remove a board from scheduled monitoring
 - `POST /api/v1/discovery/run` — run a scan immediately
 - `GET /api/v1/jobs` — list discovered jobs
 - `GET /api/v1/monitoring/status` — counts and Telegram/scheduler configuration status

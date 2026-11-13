@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine, get_db
@@ -95,11 +95,50 @@ def add_board(payload: BoardSource, db: Session = Depends(get_db)):
             BoardSourceRecord.slug == payload.slug,
         )
     )
-    if record is None:
+    created = record is None
+    if created:
         record = BoardSourceRecord(**payload.model_dump())
         db.add(record)
         db.commit()
-    return {"saved": True, "provider": payload.provider, "slug": payload.slug}
+        db.refresh(record)
+    return {
+        "saved": True,
+        "created": created,
+        "id": record.id,
+        "provider": record.provider,
+        "slug": record.slug,
+        "company_name": record.company_name,
+    }
+
+
+@app.get("/api/v1/sources/boards")
+def list_boards(db: Session = Depends(get_db)):
+    records = db.scalars(
+        select(BoardSourceRecord).order_by(
+            BoardSourceRecord.company_name.asc(),
+            BoardSourceRecord.provider.asc(),
+        )
+    ).all()
+    return [
+        {
+            "id": row.id,
+            "provider": row.provider,
+            "slug": row.slug,
+            "company_name": row.company_name,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in records
+    ]
+
+
+@app.delete("/api/v1/sources/boards/{board_id}")
+def remove_board(board_id: int, db: Session = Depends(get_db)):
+    record = db.get(BoardSourceRecord, board_id)
+    if record is None:
+        raise HTTPException(404, "Board source not found")
+    db.delete(record)
+    db.commit()
+    return {"deleted": True, "id": board_id}
 
 
 @app.post("/api/v1/jobs", response_model=JobOut)

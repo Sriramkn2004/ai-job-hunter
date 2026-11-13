@@ -7,10 +7,12 @@
 - [x] SQLAlchemy persistence for preferences, company boards and jobs
 - [x] PostgreSQL Docker configuration and SQLite local-development fallback
 - [x] API test proving jobs can be read back from persistent storage
+- [x] Celery worker and Celery Beat scheduled discovery (default 120-second interval)
+- [x] Telegram alert formatting, delivery, retry tracking and test endpoint
+- [x] Monitoring status endpoint
 - [ ] Alembic schema migrations
-- [ ] Redis/Celery scheduled discovery workers, retries and source health metrics
-- [ ] More permitted source adapters and company-board registry
-- [ ] Telegram notifications with secure approval callbacks
+- [ ] Source health metrics, per-source retry/backoff and more permitted source adapters
+- [ ] Telegram inline approval callbacks
 - [ ] Resume upload, parsing and structured candidate profile
 - [ ] AI-assisted truthful resume tailoring and answer drafting
 - [ ] Human-in-the-loop application review and supported submission adapters

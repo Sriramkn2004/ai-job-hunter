@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
-from app.database import SessionLocal
+from app.database import Base, SessionLocal, engine
 from app.discovery import discover_all
 from app.models import BoardSourceRecord, JobRecord, NotificationRecord, PreferencesRecord
 from app.schemas import BoardSource, Preferences
@@ -58,6 +58,8 @@ def deliver_pending_telegram_alerts(db) -> dict:
 
 
 async def run_discovery_cycle() -> dict:
+    # Workers may start before the API process; ensure the current schema exists.
+    Base.metadata.create_all(bind=engine)
     # Import lazily to reuse the API's single deduplication and persistence path.
     from app.main import save_job
 

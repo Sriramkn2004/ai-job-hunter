@@ -1,31 +1,56 @@
 # AI Job Hunter
 
-A cloud-first job discovery and application assistant. This project starts with normalized job ingestion, configurable screening, a review queue, and read-only integrations for supported public job boards.
+A cloud-first job discovery and application assistant. It discovers listings from supported public job-board feeds, screens them against your preferences, stores them persistently and can notify you through Telegram.
 
 ## Current features
-- FastAPI API with health, preferences, board registration, job ingestion, discovery and approval-preparation endpoints
-- SQLAlchemy persistence for preferences, registered boards and discovered jobs
+- FastAPI API for preferences, job ingestion, discovery and monitoring status
+- SQLAlchemy persistence for preferences, registered boards, jobs and notification delivery attempts
 - PostgreSQL for Docker deployments and SQLite for local development
 - Greenhouse and Lever public job-board read adapters (a company board slug is required)
-- Standardized job records and database-level duplicate protection
-- Configurable markets, roles, preferred locations and India salary threshold
-- Explainable screening; undisclosed salary is never assumed to meet the threshold
-- Docker Compose with API, PostgreSQL and Redis
-- Pytest unit and API persistence tests
+- Celery worker + Celery Beat scheduler backed by Redis
+- Configurable discovery interval (default: every 120 seconds; minimum: 60 seconds)
+- Telegram alerts for new matched/review jobs, with retry on later cycles if delivery fails
+- Duplicate listing protection and explainable screening rules
+- Pytest tests for screening and Telegram alert formatting
 
 ## Target profile defaults
 - Markets: India, USA and other international markets
 - Preferred location: Bangalore; remote roles can be included
 - India minimum CTC: ₹15 LPA
-- Hybrid workflow: eligible high-confidence matches can be prepared automatically; uncertain or incomplete cases go to review
 - Role families: software/backend, Python, AI/ML, data analytics/engineering, privacy, governance, automation/RPA, DevOps and cybersecurity
 
-## Quick start with Docker
+## Run locally with Docker
 1. Copy `.env.example` to `.env`.
-2. Run `docker compose up --build`.
-3. Open `http://localhost:8000/docs`.
-4. Register a Greenhouse or Lever board using `POST /api/v1/sources/boards`.
-5. Trigger discovery using `POST /api/v1/discovery/run`.
+2. Add your Telegram bot token and chat ID (instructions below).
+3. Run `docker compose up --build -d`.
+4. Open `http://localhost:8000/docs`.
+5. Register a Greenhouse or Lever board using `POST /api/v1/sources/boards`.
+6. Check `GET /api/v1/monitoring/status` and trigger a one-off scan with `POST /api/v1/discovery/run`.
+
+The worker and scheduler are separate services. They continue running when your laptop is off only after the Docker stack is deployed to an always-on cloud host.
+
+## Configure Telegram
+1. In Telegram, message **@BotFather**, run `/newbot`, and follow its steps.
+2. Copy the bot token into `TELEGRAM_BOT_TOKEN` in your private `.env` file.
+3. Open your new bot and press **Start** (or send `/start`).
+4. In a private browser window, open `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`. Find `message.chat.id` in the response and put that value in `TELEGRAM_CHAT_ID`.
+5. Restart the stack, then call `POST /api/v1/notifications/telegram/test` from the API docs.
+6. Never commit `.env`, bot tokens, chat IDs or resume files to GitHub. Rotate the bot token with BotFather if it is exposed.
+
+## API endpoints
+- `GET /health` — API health
+- `GET/PUT /api/v1/preferences` — candidate filters
+- `POST /api/v1/sources/boards` — register a Greenhouse or Lever board
+- `POST /api/v1/discovery/run` — run a scan immediately
+- `GET /api/v1/jobs` — list discovered jobs
+- `GET /api/v1/monitoring/status` — counts and Telegram/scheduler configuration status
+- `POST /api/v1/notifications/telegram/test` — send a test alert
+
+## Discovery coverage and latency
+The starter's two-minute schedule applies only to registered Greenhouse/Lever boards. It is not a universal search index and cannot guarantee detection at the instant a role is published. Other sources (including LinkedIn, Naukri and Indeed) must be connected through permitted APIs, approved data providers or user-authorized flows. Polling frequency must respect each source's terms and rate limits.
+
+## Application safety
+This milestone only discovers and alerts; it does not submit applications. Future application workflows must not bypass access controls or CAPTCHAs, must not invent candidate information, and must request confirmation for legal declarations, work authorization, demographic information and consent. A job must only be marked applied after a verifiable destination confirmation.
 
 ## Local development without Docker
 ```bash
@@ -34,22 +59,10 @@ python -m venv .venv
 # Windows: .venv\\Scripts\\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-# SQLite is the default when DATABASE_URL is not set.
 uvicorn app.main:app --reload
 ```
 
-Run tests from the `backend` directory with `python -m pytest -q`.
+Run tests from `backend` with `python -m pytest -q`.
 
-## Important safety and reliability boundaries
-- The public board adapters are read-only discovery sources, not universal search engines; each board requires a company slug.
-- LinkedIn, Naukri, Indeed and other sources must use permitted APIs, partnerships or user-authorized workflows. Do not bypass access controls or CAPTCHAs.
-- Never invent candidate skills, qualifications, experience or application answers.
-- Legal declarations, work authorization, demographic information and consent require explicit user confirmation.
-- An application is not considered submitted until the destination provides a verifiable confirmation.
-- This is an active development project, not yet production-ready. Authentication, migrations, scheduled workers, monitoring, secure file handling and source-specific application adapters remain on the roadmap.
-
-## Roadmap
-See [docs/ROADMAP.md](docs/ROADMAP.md).
-
-## Development history
-The project is developed through genuine, incremental commits as features are implemented and tested. No fabricated or backdated commits.
+## Project status
+This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, source health monitoring, secure candidate profile storage, resume intelligence, the React dashboard and supported application workflows remain future milestones.

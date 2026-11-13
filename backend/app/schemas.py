@@ -39,6 +39,7 @@ class JobIn(BaseModel):
     country: str = ""
     employment_type: str | None = None
     salary_min: float | None = None
+    salary_max: float | None = None
     salary_currency: str | None = None
     salary_period: str | None = None
     posted_at: str | None = None

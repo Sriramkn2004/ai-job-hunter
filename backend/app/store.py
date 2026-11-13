@@ -1,8 +1,1 @@
-from app.schemas import Preferences
-
-class Store:
-    """In-memory starter store. Replace with PostgreSQL before production."""
-    def __init__(self):
-        self.preferences = Preferences()
-        self.boards = {}
-        self.jobs = {}
+"""Deprecated in-memory store; database-backed persistence now lives in database.py and models.py."""

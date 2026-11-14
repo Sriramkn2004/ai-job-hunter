@@ -44,7 +44,7 @@ The worker and scheduler are separate services. They continue running when your 
 - `GET /health` — API health
 - `GET/PUT /api/v1/preferences` — candidate filters
 - `GET /api/v1/sources/catalog` — view the curated employer board directory
-- `POST /api/v1/sources/catalog/import` — live-check and import selected curated boards
+- `POST /api/v1/sources/catalog/import` — live-check and import selected curated boards (body requires only `provider` and `slug`)
 - `POST /api/v1/sources/boards` — register one company board (idempotent)
 - `POST /api/v1/sources/boards/bulk` — register up to 100 company boards in one request; duplicate entries are skipped
 - `POST /api/v1/sources/boards/validate` — test up to 25 public company-board feeds, report each live job count and errors, and save nothing

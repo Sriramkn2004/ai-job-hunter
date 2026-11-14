@@ -11,6 +11,11 @@ from app.models import BoardSourceRecord
 from app.schemas import CatalogBoardSelection
 
 
+def test_catalog_is_packaged_inside_backend_directory():
+    catalog_path = main_module.Path(main_module.__file__).resolve().parents[1] / "data" / "employer-board-catalog.json"
+    assert catalog_path.is_file()
+
+
 def test_catalog_import_checks_feed_and_is_idempotent(monkeypatch):
     engine = create_engine(
         "sqlite://",

@@ -1,0 +1,43 @@
+{
+  "catalog_version": 1,
+  "last_reviewed": "2026-11-14",
+  "description": "Curated employer boards. Import performs a live feed check before saving each board.",
+  "boards": [
+    {
+      "company_name": "Ramp",
+      "provider": "ashby",
+      "slug": "ramp",
+      "market": "USA / Global",
+      "careers_url": "https://jobs.ashbyhq.com/ramp",
+      "verification_url": "https://api.ashbyhq.com/posting-api/job-board/ramp?includeCompensation=true",
+      "verification_note": "Public Ashby feed returned live postings when checked 14 Nov 2026."
+    },
+    {
+      "company_name": "Spotify",
+      "provider": "lever",
+      "slug": "spotify",
+      "market": "Global",
+      "careers_url": "https://jobs.lever.co/spotify",
+      "verification_url": "https://api.lever.co/v0/postings/spotify?mode=json",
+      "verification_note": "Public Lever feed returned live postings when checked 14 Nov 2026."
+    },
+    {
+      "company_name": "TechGrove by Banyan Software",
+      "provider": "greenhouse",
+      "slug": "techgrovebybanyansoftware",
+      "market": "India",
+      "careers_url": "https://job-boards.greenhouse.io/techgrovebybanyansoftware",
+      "verification_url": "https://boards-api.greenhouse.io/v1/boards/techgrovebybanyansoftware/jobs?content=true",
+      "verification_note": "Public Greenhouse careers page lists India-based engineering roles; feed will be checked again during import."
+    },
+    {
+      "company_name": "Cleo",
+      "provider": "greenhouse",
+      "slug": "cleoindia",
+      "market": "India",
+      "careers_url": "https://job-boards.greenhouse.io/cleoindia",
+      "verification_url": "https://boards-api.greenhouse.io/v1/boards/cleoindia/jobs?content=true",
+      "verification_note": "Public Greenhouse careers page lists Bengaluru roles; feed will be checked again during import."
+    }
+  ]
+}

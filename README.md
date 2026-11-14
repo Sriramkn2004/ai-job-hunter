@@ -24,7 +24,7 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 2. Add your Telegram bot token and chat ID (instructions below).
 3. Run `docker compose up --build -d`.
 4. Open `http://localhost:8000/docs`.
-5. Register one or more company boards using `POST /api/v1/sources/boards` or bulk import using `POST /api/v1/sources/boards/bulk`.
+5. Validate public company-board feeds with `POST /api/v1/sources/boards/validate` before registering them; validation reports live listing counts and does not save anything.\n6. Register one or more company boards using `POST /api/v1/sources/boards` or bulk import using `POST /api/v1/sources/boards/bulk`.
 6. List and manage registered boards with `GET` and `DELETE /api/v1/sources/boards`.
 6. Check `GET /api/v1/monitoring/status` and trigger a one-off scan with `POST /api/v1/discovery/run`.
 
@@ -42,7 +42,7 @@ The worker and scheduler are separate services. They continue running when your 
 - `GET /health` — API health
 - `GET/PUT /api/v1/preferences` — candidate filters
 - `POST /api/v1/sources/boards` — register one company board (idempotent)
-- `POST /api/v1/sources/boards/bulk` — register up to 100 company boards in one request; duplicate entries are skipped
+- `POST /api/v1/sources/boards/bulk` — register up to 100 company boards in one request; duplicate entries are skipped\n- `POST /api/v1/sources/boards/validate` — test up to 25 public company-board feeds, report each live job count and errors, and save nothing
 - `GET /api/v1/sources/boards` — list registered boards
 - `DELETE /api/v1/sources/boards/{board_id}` — remove a board from scheduled monitoring
 - `POST /api/v1/discovery/run` — run a scan immediately

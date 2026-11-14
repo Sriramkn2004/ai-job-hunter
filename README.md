@@ -12,7 +12,9 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 - Telegram alerts for new matched/review jobs, with retry on later cycles if delivery fails
 - Duplicate listing protection and explainable screening rules
 - Curated employer directory with live-feed-checked, duplicate-safe imports
-- Per-board health history: last check, last success, jobs found and consecutive failures\n- Pytest coverage for screening, provider adapters, source imports and monitoring
+- Per-board health history: last check, last success, jobs found and consecutive failures
+- React dashboard for job inbox, screening filters and source health
+- Pytest coverage for screening, provider adapters, source imports and monitoring
 
 ## Target profile defaults
 - Markets: India, USA and other international markets

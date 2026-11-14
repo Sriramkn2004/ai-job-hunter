@@ -333,3 +333,33 @@ def test_posted_at_normalizes_epoch_milliseconds():
 
 def test_posted_at_rejects_invalid_values():
     assert normalize_posted_at("not-a-date") is None
+
+
+def test_recruitee_job_extraction():
+    payload = {
+        "offers": [{
+            "id": 123,
+            "title": "Data Engineer",
+            "description": "Build data pipelines",
+            "location": "Bengaluru, India",
+            "careers_apply_url": "https://acme.recruitee.com/o/data-engineer",
+            "published_at": "2026-11-13T10:00:00Z",
+        }]
+    }
+
+    def handler(request):
+        assert request.url.host == "acme.recruitee.com"
+        return httpx.Response(200, json=payload, request=request)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            board = BoardSource(provider="recruitee", slug="acme", company_name="Acme")
+            return await discover_board(client, board)
+
+    jobs = asyncio.run(run())
+    assert len(jobs) == 1
+    assert jobs[0].source_job_id == "recruitee:acme:123"
+    assert jobs[0].title == "Data Engineer"
+    assert jobs[0].country == "India"
+    assert jobs[0].posted_at == "2026-11-13T10:00:00+00:00"
+    assert str(jobs[0].apply_url) == "https://acme.recruitee.com/o/data-engineer"

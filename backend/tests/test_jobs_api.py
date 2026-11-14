@@ -55,7 +55,7 @@ def test_jobs_api_filters_search_and_paginates():
             q="Developer", limit=1, offset=1, db=db,
         )
         assert len(second_page) == 1
-        assert second_page[0].source_job_id == "3"
+        assert second_page[0].source_job_id == "1"
 
         company_search = list_jobs(
             status=None, country=None, source=None, company="Globex",

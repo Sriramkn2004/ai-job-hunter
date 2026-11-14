@@ -63,7 +63,7 @@ def normalize_posted_at(value) -> str | None:
 
 GREENHOUSE_URL = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
 LEVER_URL = "https://api.lever.co/v0/postings/{slug}?mode=json"
-ASHBY_URL = "https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"
+ASHBY_URL = "https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"\nRECRUITEE_URL = "https://{slug}.recruitee.com/api/offers/"
 
 @dataclass
 class DiscoveryFailure:
@@ -216,7 +216,46 @@ async def discover_board(
             )
 
         return jobs
-    raise ValueError(f"Unsupported job board provider: {board.provider}")
+
+    if board.provider == "recruitee":
+        response = await client.get(
+            RECRUITEE_URL.format(slug=board.slug),
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        rows = payload.get("offers", payload) if isinstance(payload, dict) else payload
+        if not isinstance(rows, list):
+            raise ValueError("Recruitee returned an invalid offers list")
+
+        jobs = []
+        for row in rows:
+            if not isinstance(row, dict) or row.get("id") is None:
+                continue
+            location = row.get("location") or ""
+            if isinstance(location, dict):
+                location = location.get("city") or location.get("name") or ""
+            apply_url = row.get("careers_apply_url") or row.get("careers_url") or row.get("url")
+            if not apply_url:
+                continue
+            jobs.append(
+                JobIn(
+                    source="recruitee",
+                    source_job_id=f"recruitee:{board.slug}:{row['id']}",
+                    company=board.company_name,
+                    title=row.get("title") or row.get("name") or "Untitled",
+                    description=row.get("description") or row.get("description_html") or "",
+                    location=str(location),
+                    country=infer_country(str(location)),
+                    employment_type=row.get("employment_type"),
+                    posted_at=normalize_posted_at(
+                        row.get("published_at") or row.get("created_at")
+                    ),
+                    apply_url=apply_url,
+                )
+            )
+        return jobs
+\n    raise ValueError(f"Unsupported job board provider: {board.provider}")
 
 
 async def discover_all_with_report(

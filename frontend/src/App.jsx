@@ -65,6 +65,7 @@ export default function App() {
         request(`${API}/jobs?${params.toString()}`),
         request(`${API}/monitoring/boards`),
         request(`${API}/preferences`),
+        request(`${API}/sources/catalog`),
       ]);
       setSummary(stats);
       setJobs(jobRows);

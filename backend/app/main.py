@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import json
+from pathlib import Path
 
 import httpx
 
@@ -217,6 +219,93 @@ async def validate_boards(payload: list[BoardSource]):
         "total_live_jobs": sum(item["live_jobs"] for item in results),
         "results": results,
         "saved": False,
+    }
+
+
+@app.get("/api/v1/sources/catalog")
+def get_employer_board_catalog():
+    catalog_path = Path(__file__).resolve().parents[2] / "data" / "employer-board-catalog.json"
+    if not catalog_path.is_file():
+        raise HTTPException(503, "Employer board catalog is unavailable")
+    return json.loads(catalog_path.read_text(encoding="utf-8"))
+
+
+@app.post("/api/v1/sources/catalog/import")
+async def import_employer_board_catalog(
+    payload: list[BoardSource],
+    db: Session = Depends(get_db),
+):
+    """Live-check selected catalog boards and register only reachable public feeds."""
+    if not payload:
+        raise HTTPException(400, "Select at least one catalog board")
+    if len(payload) > 25:
+        raise HTTPException(400, "A maximum of 25 catalog boards can be imported at once")
+
+    catalog_path = Path(__file__).resolve().parents[2] / "data" / "employer-board-catalog.json"
+    if not catalog_path.is_file():
+        raise HTTPException(503, "Employer board catalog is unavailable")
+    catalog_data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    allowed = {
+        (item["provider"], item["slug"]): item
+        for item in catalog_data.get("boards", [])
+    }
+
+    imported, skipped, rejected = [], [], []
+    async with httpx.AsyncClient(
+        headers={"User-Agent": "AIJobHunter/0.1 (personal job search)"}
+    ) as client:
+        for board in payload:
+            key = (board.provider, board.slug)
+            catalog_item = allowed.get(key)
+            if catalog_item is None:
+                rejected.append({
+                    "provider": board.provider, "slug": board.slug,
+                    "reason": "not_in_curated_catalog",
+                })
+                continue
+
+            existing = db.scalar(
+                select(BoardSourceRecord).where(
+                    BoardSourceRecord.provider == board.provider,
+                    BoardSourceRecord.slug == board.slug,
+                )
+            )
+            if existing is not None:
+                skipped.append({
+                    "provider": board.provider, "slug": board.slug,
+                    "reason": "already_registered",
+                })
+                continue
+
+            try:
+                jobs = await discover_board(client, board)
+            except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                rejected.append({
+                    "provider": board.provider, "slug": board.slug,
+                    "reason": f"{type(exc).__name__}: {exc}",
+                })
+                continue
+
+            record = BoardSourceRecord(**board.model_dump())
+            db.add(record)
+            db.flush()
+            imported.append({
+                "id": record.id,
+                "provider": board.provider,
+                "slug": board.slug,
+                "company_name": board.company_name,
+                "live_jobs_at_import": len(jobs),
+                "careers_url": catalog_item["careers_url"],
+            })
+
+    db.commit()
+    return {
+        "imported_count": len(imported),
+        "skipped_count": len(skipped),
+        "rejected_count": len(rejected),
+        "imported": imported,
+        "skipped": skipped,
+        "rejected": rejected,
     }
 
 

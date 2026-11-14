@@ -5,6 +5,39 @@ import hashlib
 from app.schemas import BoardSource, JobIn
 
 
+
+def infer_country(location: str) -> str:
+    """Infer country only from explicit country names or common Indian cities."""
+    value = (location or "").strip().lower()
+    if not value:
+        return ""
+
+    explicit_countries = {
+        "india": "India",
+        "united states": "USA",
+        "united states of america": "USA",
+        "usa": "USA",
+        "united kingdom": "UK",
+        "canada": "Canada",
+        "australia": "Australia",
+        "germany": "Germany",
+        "singapore": "Singapore",
+    }
+    for country_name, country_code in explicit_countries.items():
+        if country_name in value:
+            return country_code
+
+    indian_cities = (
+        "bangalore", "bengaluru", "hyderabad", "chennai", "mumbai",
+        "pune", "gurugram", "gurgaon", "noida", "new delhi", "delhi",
+        "kolkata", "ahmedabad", "kochi", "thiruvananthapuram",
+    )
+    if any(city in value for city in indian_cities):
+        return "India"
+
+    return ""
+
+
 GREENHOUSE_URL = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
 LEVER_URL = "https://api.lever.co/v0/postings/{slug}?mode=json"
 ASHBY_URL = "https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"
@@ -62,7 +95,7 @@ async def discover_board(
                     location=location.get("name", "")
                     if isinstance(location, dict)
                     else "",
-                    country="India" if any(city in str(location.get("name", "")).lower() for city in ("bangalore", "bengaluru", "hyderabad", "chennai", "mumbai", "pune", "gurugram", "gurgaon", "noida")) else ("USA" if "united states" in str(location.get("name", "")).lower() or "usa" in str(location.get("name", "")).lower() else ("India" if "india" in str(location.get("name", "")).lower() else "")),
+                    country=infer_country(location.get("name", "") if isinstance(location, dict) else ""),
                     apply_url=row.get("absolute_url"),
                 )
             )
@@ -99,7 +132,7 @@ async def discover_board(
                     title=row.get("text", "Untitled"),
                     description=row.get("descriptionPlain", "") or "",
                     location=categories.get("location", ""),
-                    country="India" if any(city in str(categories.get("location", "")).lower() for city in ("bangalore", "bengaluru", "hyderabad", "chennai", "mumbai", "pune", "gurugram", "gurgaon", "noida")) else ("USA" if "united states" in str(categories.get("location", "")).lower() or "usa" in str(categories.get("location", "")).lower() else ("India" if "india" in str(categories.get("location", "")).lower() else "")),
+                    country=infer_country(categories.get("location", "")),
                     employment_type=categories.get("commitment"),
                     apply_url=row.get("hostedUrl") or row.get("applyUrl"),
                 )

@@ -26,7 +26,7 @@ class Preferences(BaseModel):
     salary_unknown_policy: Literal["review", "skip"] = "review"
 
 class BoardSource(BaseModel):
-    provider: Literal["greenhouse", "lever", "ashby"]
+    provider: Literal["greenhouse", "lever", "ashby", "recruitee"]
     slug: str = Field(min_length=1, max_length=120)
     company_name: str = Field(min_length=1, max_length=200)
 

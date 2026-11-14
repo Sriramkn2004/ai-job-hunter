@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 import app.main as main_module
 from app.database import Base
 from app.models import BoardSourceRecord
-from app.schemas import BoardSource
+from app.schemas import CatalogBoardSelection
 
 
 def test_catalog_import_checks_feed_and_is_idempotent(monkeypatch):
@@ -24,9 +24,9 @@ def test_catalog_import_checks_feed_and_is_idempotent(monkeypatch):
 
     monkeypatch.setattr(main_module, "discover_board", fake_discover_board)
     payload = [
-        BoardSource(provider="ashby", slug="ramp", company_name="Untrusted display name"),
-        BoardSource(provider="ashby", slug="ramp", company_name="Ramp"),
-        BoardSource(provider="greenhouse", slug="unknown", company_name="Unknown"),
+        CatalogBoardSelection(provider="ashby", slug="ramp"),
+        CatalogBoardSelection(provider="ashby", slug="ramp"),
+        CatalogBoardSelection(provider="greenhouse", slug="unknown"),
     ]
 
     with Session(engine) as db:

@@ -58,12 +58,18 @@ The worker and scheduler are separate services. They continue running when your 
 - `GET /api/v1/jobs` — search and page through jobs using `q`, `status`, `country`, `company`, `source`, `limit` and `offset`
 - `GET /api/v1/monitoring/status` — counts and Telegram/scheduler configuration status
 - `GET /api/v1/monitoring/boards` — per-board check history, job counts and failure status
-- `POST /api/v1/notifications/telegram/test` — send a test alert\n- `GET /api/v1/applications` — list prepared and tracked applications\n- `POST /api/v1/applications/drafts` — create a truthful, editable cover-letter draft for a matched/review job\n- `PATCH /api/v1/applications/{id}` — update cover letter, employer-account requirement/status and notes\n- `POST /api/v1/applications/{id}/approve` — record candidate approval; does not submit to the employer\n- `POST /api/v1/applications/{id}/record-submission` — record an employer-confirmed submission reference
+- `POST /api/v1/notifications/telegram/test` — send a test alert
+- `GET /api/v1/applications` — list prepared and tracked applications
+- `POST /api/v1/applications/drafts` — create a truthful, editable cover-letter draft for a matched/review job
+- `PATCH /api/v1/applications/{id}` — update cover letter, employer-account requirement/status and notes
+- `POST /api/v1/applications/{id}/approve` — record candidate approval; does not submit to the employer
+- `POST /api/v1/applications/{id}/record-submission` — record an employer-confirmed submission reference
 
 ## Discovery coverage and latency
 The starter's two-minute schedule applies only to registered Greenhouse/Lever/Ashby/Recruitee/SmartRecruiters/Workable/Personio company boards and the Remote OK feed. It is not a universal search index and cannot guarantee detection at the instant a role is published. Other sources (including LinkedIn, Naukri and Indeed) must be connected through permitted APIs, approved data providers or user-authorized flows. Polling frequency must respect each source's terms and rate limits.
 
-## Application preparation and submission status\nThe dashboard can create an editable cover-letter draft from the candidate facts supplied in the resume, track employer account requirements, record candidate approval and track an employer-confirmed submission reference. Approval is not submission: generic ATS posting feeds do not provide authorized application-submission or account-creation APIs, so no employer account is created and no application is submitted automatically in this milestone. Complete the employer form on its official site. Never store employer passwords or OTPs in this app, bypass CAPTCHAs/access controls, or invent candidate details. Legal declarations, work authorization, demographic questions and consent must be answered by the candidate. Mark a job submitted only after receiving confirmation from the employer.
+## Application preparation and submission status
+The dashboard can create an editable cover-letter draft from the candidate facts supplied in the resume, track employer account requirements, record candidate approval and track an employer-confirmed submission reference. Approval is not submission: generic ATS posting feeds do not provide authorized application-submission or account-creation APIs, so no employer account is created and no application is submitted automatically in this milestone. Complete the employer form on its official site. Never store employer passwords or OTPs in this app, bypass CAPTCHAs/access controls, or invent candidate details. Legal declarations, work authorization, demographic questions and consent must be answered by the candidate. Mark a job submitted only after receiving confirmation from the employer.
 
 ## Local development without Docker
 ```bash

@@ -3,15 +3,15 @@
 A cloud-first job discovery and application assistant. It discovers listings from supported public job-board feeds, screens them against your preferences, stores them persistently and can notify you through Telegram.
 
 ## Current features
-- FastAPI API for preferences, job ingestion, discovery and monitoring status
-- SQLAlchemy persistence for preferences, registered boards, jobs and notification delivery attempts
+- FastAPI API for preferences, job ingestion, discovery, curated source catalog and monitoring
+- SQLAlchemy persistence for preferences, registered boards, per-board health, jobs and notification delivery attempts
 - PostgreSQL for Docker deployments and SQLite for local development
 - Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Workable and Personio public company-board adapters, plus Remote OK's public feed (enabled automatically)
 - Celery worker + Celery Beat scheduler backed by Redis
 - Configurable discovery interval (default: every 120 seconds; minimum: 60 seconds)
 - Telegram alerts for new matched/review jobs, with retry on later cycles if delivery fails
 - Duplicate listing protection and explainable screening rules
-- Pytest tests for screening and Telegram alert formatting
+- Curated employer directory with live-feed-checked, duplicate-safe imports\n- Per-board health history: last check, last success, jobs found and consecutive failures\n- Pytest coverage for screening, provider adapters, source imports and monitoring
 
 ## Target profile defaults
 - Markets: India, USA and other international markets
@@ -75,4 +75,4 @@ uvicorn app.main:app --reload
 Run tests from `backend` with `python -m pytest -q`.
 
 ## Project status
-This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, source health monitoring, secure candidate profile storage, resume intelligence, the React dashboard and supported application workflows remain future milestones.
+This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, resume intelligence, the React dashboard and supported application workflows remain future milestones. Source health monitoring is implemented but still needs broader operational testing.

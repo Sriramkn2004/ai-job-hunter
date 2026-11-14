@@ -40,6 +40,7 @@ def test_greenhouse_job_extraction():
         assert jobs[0].company == "Acme"
         assert jobs[0].title == "Python Developer"
         assert jobs[0].location == "Bangalore, India"
+        assert jobs[0].country == "India"
 
     asyncio.run(run())
 
@@ -78,6 +79,7 @@ def test_lever_job_extraction():
         assert jobs[0].company == "Acme"
         assert jobs[0].title == "Backend Developer"
         assert jobs[0].location == "Bangalore"
+        assert jobs[0].country == "India"
         assert jobs[0].employment_type == "Full-time"
 
     asyncio.run(run())

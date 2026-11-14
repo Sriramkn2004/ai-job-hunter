@@ -107,7 +107,8 @@ async def run_discovery_cycle() -> dict:
             else:
                 health.last_success_at = now
                 health.consecutive_failures = 0
-        db.flush()
+        # Persist health even when a board returns zero jobs (save_job may never commit).
+        db.commit()
         inserted = duplicates = 0
         for job in jobs:
             _, created = save_job(db, job, preferences)

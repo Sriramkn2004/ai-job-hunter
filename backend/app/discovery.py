@@ -221,40 +221,85 @@ async def discover_board(
         return jobs
 
     if board.provider == "smartrecruiters":
-        response = await client.get(SMARTRECRUITERS_URL.format(slug=board.slug), timeout=20)
-        response.raise_for_status()
-        payload = response.json()
-        rows = payload.get("content", payload.get("postings", [])) if isinstance(payload, dict) else []
-        if not isinstance(rows, list):
-            raise ValueError("SmartRecruiters returned an invalid postings list")
+        # The list endpoint returns summaries; fetch each public posting detail
+        # to obtain its real application URL and description.
         jobs = []
-        for row in rows:
-            if not isinstance(row, dict) or not row.get("id"):
-                continue
-            location_data = row.get("location") or {}
-            if isinstance(location_data, dict):
-                city = location_data.get("city") or ""
-                region = location_data.get("region") or ""
-                country_name = location_data.get("country") or ""
-                location = ", ".join(part for part in (city, region, country_name) if part)
-            else:
-                location = str(location_data)
-            country = (location_data.get("country") or "") if isinstance(location_data, dict) else ""
-            country = country or infer_country(location)
-            apply_url = row.get("applyUrl") or row.get("jobAdUrl")
-            if not apply_url:
-                continue
-            jobs.append(JobIn(
-                source="smartrecruiters",
-                source_job_id=f"smartrecruiters:{board.slug}:{row['id']}",
-                company=board.company_name,
-                title=row.get("name") or row.get("title") or "Untitled",
-                description=row.get("jobAd", {}).get("sections", {}).get("jobDescription", {}).get("text", "") if isinstance(row.get("jobAd"), dict) else "",
-                location=location,
-                country=country,
-                posted_at=normalize_posted_at(row.get("releasedDate") or row.get("postedDate")),
-                apply_url=apply_url,
-            ))
+        offset = 0
+        page_size = 100
+        total_found = None
+        while total_found is None or offset < total_found:
+            response = await client.get(
+                SMARTRECRUITERS_URL.format(slug=board.slug).replace(
+                    "limit=100&offset=0", f"limit={page_size}&offset={offset}"
+                ),
+                timeout=20,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise ValueError("SmartRecruiters returned an invalid postings response")
+            rows = payload.get("content", [])
+            if not isinstance(rows, list):
+                raise ValueError("SmartRecruiters returned an invalid postings list")
+            total_found = int(payload.get("totalFound", offset + len(rows)))
+            if not rows:
+                break
+
+            for row in rows:
+                if not isinstance(row, dict) or not row.get("id"):
+                    continue
+                detail_response = await client.get(
+                    f"https://api.smartrecruiters.com/v1/companies/{board.slug}/postings/{row['id']}",
+                    timeout=20,
+                )
+                detail_response.raise_for_status()
+                detail = detail_response.json()
+                if not isinstance(detail, dict):
+                    continue
+                location_data = detail.get("location") or row.get("location") or {}
+                if isinstance(location_data, dict):
+                    city = location_data.get("city") or ""
+                    region = location_data.get("region") or ""
+                    country_name = location_data.get("country") or ""
+                    location = ", ".join(
+                        part for part in (city, region, country_name) if part
+                    )
+                    country_codes = {
+                        "in": "India", "us": "USA", "gb": "UK", "uk": "UK",
+                        "ca": "Canada", "au": "Australia", "de": "Germany",
+                        "sg": "Singapore",
+                    }
+                    country = country_codes.get(str(country_name).lower(), "")
+                else:
+                    location = str(location_data)
+                    country = ""
+                country = country or infer_country(location)
+                job_ad = detail.get("jobAd") or {}
+                sections = job_ad.get("sections") or {} if isinstance(job_ad, dict) else {}
+                description = "\\n\\n".join(
+                    str(section.get("text") or "")
+                    for section in sections.values()
+                    if isinstance(section, dict) and section.get("text")
+                )
+                apply_url = detail.get("applyUrl") or detail.get("jobAdUrl")
+                if not apply_url:
+                    continue
+                employment = detail.get("typeOfEmployment") or {}
+                jobs.append(JobIn(
+                    source="smartrecruiters",
+                    source_job_id=f"smartrecruiters:{board.slug}:{row['id']}",
+                    company=(detail.get("company") or {}).get("name") or board.company_name,
+                    title=detail.get("name") or row.get("name") or "Untitled",
+                    description=description,
+                    location=location,
+                    country=country,
+                    employment_type=employment.get("label") if isinstance(employment, dict) else None,
+                    posted_at=normalize_posted_at(detail.get("releasedDate") or row.get("releasedDate")),
+                    apply_url=apply_url,
+                ))
+            offset += len(rows)
+            if len(rows) < page_size:
+                break
         return jobs
 
     if board.provider == "remoteok":

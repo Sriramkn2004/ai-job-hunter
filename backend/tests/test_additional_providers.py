@@ -87,7 +87,7 @@ def test_smartrecruiters_fetches_full_public_posting():
     assert jobs[0].location == "Bengaluru, Karnataka, IN"
     assert jobs[0].country == "India"
     assert jobs[0].employment_type == "Full-time"
-    assert jobs[0].description == "Build data pipelines\\n\\nPython and SQL"
+    assert jobs[0].description == "Build data pipelines\n\nPython and SQL"
     assert jobs[0].posted_at == "2026-11-12T08:30:00+00:00"
     assert str(jobs[0].apply_url) == "https://www.smartrecruiters.com/Acme/202"
 

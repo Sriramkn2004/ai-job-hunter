@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from app.database import Base, SessionLocal, engine
-from app.discovery import discover_all
+from app.discovery import discover_all_with_report
 from app.models import BoardSourceRecord, JobRecord, NotificationRecord, PreferencesRecord
 from app.schemas import BoardSource, Preferences
 from app.notifications import build_job_alert, send_telegram_message
@@ -74,7 +74,8 @@ async def run_discovery_cycle() -> dict:
             pref_record.payload if pref_record else {}
         )
 
-        jobs = await discover_all(boards)
+        report = await discover_all_with_report(boards)
+        jobs = report.jobs
         inserted = duplicates = 0
         for job in jobs:
             _, created = save_job(db, job, preferences)
@@ -84,11 +85,23 @@ async def run_discovery_cycle() -> dict:
                 duplicates += 1
 
         notifications = deliver_pending_telegram_alerts(db)
+
         return {
-            "checked_at": datetime.now(timezone.utc).isoformat(),
-            "boards_checked": len(boards),
-            "discovered": len(jobs),
-            "inserted": inserted,
-            "duplicates": duplicates,
-            "telegram": notifications,
+    "checked_at": datetime.now(timezone.utc).isoformat(),
+    "boards_checked": report.boards_checked,
+    "boards_succeeded": report.boards_succeeded,
+    "boards_failed": report.boards_failed,
+    "discovered": len(jobs),
+    "inserted": inserted,
+    "duplicates": duplicates,
+    "failures": [
+        {
+            "provider": failure.provider,
+            "slug": failure.slug,
+            "company": failure.company,
+            "error": failure.error,
         }
+        for failure in report.failures
+    ],
+    "telegram": notifications,
+}

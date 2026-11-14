@@ -1,4 +1,5 @@
-﻿import asyncio
+﻿
+import asyncio
 
 import httpx
 
@@ -23,7 +24,9 @@ def test_greenhouse_job_extraction():
         return httpx.Response(200, json=payload, request=request)
 
     async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             board = BoardSource(
                 provider="greenhouse",
                 slug="acme",
@@ -59,7 +62,9 @@ def test_lever_job_extraction():
         return httpx.Response(200, json=payload, request=request)
 
     async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             board = BoardSource(
                 provider="lever",
                 slug="acme",
@@ -83,7 +88,9 @@ def test_discovery_handles_http_errors():
         return httpx.Response(503, request=request)
 
     async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             board = BoardSource(
                 provider="greenhouse",
                 slug="unavailable-company",
@@ -101,17 +108,14 @@ def test_discovery_handles_http_errors():
 
 def test_discover_all_continues_after_one_board_fails(monkeypatch):
     import app.discovery as discovery_module
+    from app.schemas import JobIn
 
     async def fake_discover_board(client, board):
         if board.slug == "unavailable":
             raise httpx.ConnectError(
                 "Connection failed",
-                request=httpx.Request(
-                    "GET", "https://example.com"
-                ),
+                request=httpx.Request("GET", "https://example.com"),
             )
-
-        from app.schemas import JobIn
 
         return [
             JobIn(
@@ -159,7 +163,9 @@ def test_greenhouse_empty_listing():
         return httpx.Response(200, json={"jobs": []}, request=request)
 
     async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             board = BoardSource(
                 provider="greenhouse",
                 slug="empty-company",
@@ -168,5 +174,139 @@ def test_greenhouse_empty_listing():
             jobs = await discover_board(client, board)
 
         assert jobs == []
+
+    asyncio.run(run())
+
+
+def test_discovery_report_tracks_success_and_failure(monkeypatch):
+    import app.discovery as discovery_module
+    from app.schemas import JobIn
+
+    async def fake_discover_board(client, board):
+        if board.slug == "unavailable":
+            raise httpx.ConnectError(
+                "Connection failed",
+                request=httpx.Request("GET", "https://example.com"),
+            )
+
+        return [
+            JobIn(
+                source="greenhouse",
+                source_job_id="greenhouse:789",
+                company=board.company_name,
+                title="Python Developer",
+                description="Build APIs",
+                location="Bangalore",
+                apply_url="https://example.com/jobs/789",
+            )
+        ]
+
+    monkeypatch.setattr(
+        discovery_module,
+        "discover_board",
+        fake_discover_board,
+    )
+
+    async def run():
+        boards = [
+            BoardSource(
+                provider="greenhouse",
+                slug="working",
+                company_name="Working Company",
+            ),
+            BoardSource(
+                provider="greenhouse",
+                slug="unavailable",
+                company_name="Unavailable Company",
+            ),
+        ]
+        return await discovery_module.discover_all_with_report(boards)
+
+    report = asyncio.run(run())
+
+    assert report.boards_checked == 2
+    assert report.boards_succeeded == 1
+    assert report.boards_failed == 1
+    assert len(report.jobs) == 1
+    assert len(report.failures) == 1
+    assert report.failures[0].company == "Unavailable Company"
+    assert "ConnectError" in report.failures[0].error
+
+
+def test_discovery_report_handles_empty_successful_board(monkeypatch):
+    import app.discovery as discovery_module
+
+    async def fake_discover_board(client, board):
+        return []
+
+    monkeypatch.setattr(
+        discovery_module,
+        "discover_board",
+        fake_discover_board,
+    )
+
+    async def run():
+        board = BoardSource(
+            provider="greenhouse",
+            slug="empty",
+            company_name="Empty Company",
+        )
+        return await discovery_module.discover_all_with_report([board])
+
+    report = asyncio.run(run())
+
+    assert report.boards_checked == 1
+    assert report.boards_succeeded == 1
+    assert report.boards_failed == 0
+    assert report.jobs == []
+    assert report.failures == []
+
+
+def test_ashby_job_extraction():
+    payload = {
+        "jobs": [
+            {
+                "title": "AI Engineer",
+                "location": "Bangalore, India",
+                "descriptionPlain": "Build AI applications",
+                "publishedAt": "2026-11-14T08:00:00Z",
+                "employmentType": "FullTime",
+                "jobUrl": "https://jobs.ashbyhq.com/acme/job-123",
+                "applyUrl": "https://jobs.ashbyhq.com/acme/job-123/application",
+                "address": {
+                    "postalAddress": {
+                        "addressCountry": "India"
+                    }
+                },
+            }
+        ]
+    }
+
+    def handler(request):
+        return httpx.Response(200, json=payload, request=request)
+
+    async def run():
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            board = BoardSource(
+                provider="ashby",
+                slug="acme",
+                company_name="Acme",
+            )
+            jobs = await discover_board(client, board)
+
+        assert len(jobs) == 1
+        assert jobs[0].source == "ashby"
+        assert jobs[0].title == "AI Engineer"
+        assert jobs[0].location == "Bangalore, India"
+        assert jobs[0].country == "India"
+        assert jobs[0].employment_type == "FullTime"
+        assert jobs[0].posted_at == "2026-11-14T08:00:00Z"
+
+        # Pydantic converts this field to HttpUrl.
+        assert str(jobs[0].apply_url) == (
+            "https://jobs.ashbyhq.com/acme/job-123/application"
+        )
 
     asyncio.run(run())

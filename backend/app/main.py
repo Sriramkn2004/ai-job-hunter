@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import Base, SessionLocal, engine, get_db
 from app.models import BoardSourceRecord, JobRecord, PreferencesRecord
 from app.schemas import BoardSource, JobIn, JobOut, Preferences
-from app.screening import evaluate_job
+from app.screening import evaluate_job, extract_salary
 
 
 def initialize_database() -> None:
@@ -159,6 +159,87 @@ def list_jobs(status: str | None = None, db: Session = Depends(get_db)):
         jobs = [job for job in jobs if job.screening and job.screening.status == status]
     return jobs
 
+@app.post("/api/v1/jobs/rescreen")
+def rescreen_existing_jobs(db: Session = Depends(get_db)):
+    preferences_record = db.get(PreferencesRecord, 1)
+    preferences = Preferences.model_validate(
+        preferences_record.payload if preferences_record else {}
+    )
+
+    records = db.scalars(select(JobRecord)).all()
+
+    updated = 0
+    salary_extracted = 0
+    status_counts = {
+        "matched": 0,
+        "review": 0,
+        "skipped": 0,
+    }
+
+    try:
+        for record in records:
+
+            # Backfill annual salary period for existing Adzuna records
+            if (
+                record.source == "adzuna"
+                and (record.salary_min is not None or record.salary_max is not None)
+                and not record.salary_period
+            ):
+                record.salary_period = "year"
+
+            # Extract and persist salary when structured salary is unavailable
+            if record.salary_min is None and record.salary_max is None:
+                extracted = extract_salary(
+                    record.description,
+                    record.country,
+                )
+
+                if extracted:
+                    (
+                        record.salary_min,
+                        record.salary_max,
+                        record.salary_currency,
+                        record.salary_period,
+                    ) = extracted
+
+                    salary_extracted += 1
+
+            job = JobIn(
+                source=record.source,
+                source_job_id=record.source_job_id,
+                company=record.company,
+                title=record.title,
+                description=record.description,
+                location=record.location,
+                country=record.country,
+                employment_type=record.employment_type,
+                salary_min=record.salary_min,
+                salary_max=record.salary_max,
+                salary_currency=record.salary_currency,
+                salary_period=record.salary_period,
+                posted_at=record.posted_at,
+                apply_url=record.apply_url,
+            )
+
+            result = evaluate_job(job, preferences)
+            record.screening = result.model_dump()
+
+            status_counts[result.status] += 1
+            updated += 1
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    return {
+        "success": True,
+        "jobs_rescreened": updated,
+        "salary_extracted": salary_extracted,
+        "status_counts": status_counts,
+        "notifications_sent": 0,
+    }
 
 @app.post("/api/v1/discovery/run")
 async def run_discovery():
@@ -221,3 +302,61 @@ def approve_application(source_job_id: str, db: Session = Depends(get_db)):
         "job": record.title,
         "message": "Approval recorded. A permitted source-specific submission adapter is not enabled yet.",
     }
+
+@app.post("/api/v1/discovery/adzuna")
+async def run_adzuna_discovery(
+    country: str = "in",
+    what: str = "software developer",
+    where: str = "Bangalore",
+    db: Session = Depends(get_db),
+):
+    import httpx
+    from app.adzuna import (
+        discover_adzuna,
+        AdzunaConfigurationError,
+    )
+    from app.discovery_service import deliver_pending_telegram_alerts
+
+    if country not in {"in", "us"}:
+        raise HTTPException(400, "Country must be 'in' or 'us'")
+
+    try:
+        jobs = await discover_adzuna(
+            country=country,
+            what=what,
+            where=where,
+        )
+    except AdzunaConfigurationError as exc:
+        raise HTTPException(503, str(exc))
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, f"Adzuna API error: {exc}")
+    except ValueError as exc:
+        raise HTTPException(502, str(exc))
+
+    pref_record = db.get(PreferencesRecord, 1)
+    preferences = Preferences.model_validate(
+        pref_record.payload if pref_record else {}
+    )
+
+    inserted = duplicates = 0
+
+    for job in jobs:
+        _, created = save_job(db, job, preferences)
+        if created:
+            inserted += 1
+        else:
+            duplicates += 1
+
+    telegram = deliver_pending_telegram_alerts(db)
+
+    return {
+        "provider": "adzuna",
+        "country": country,
+        "search_term": what,
+        "location": where,
+        "discovered": len(jobs),
+        "inserted": inserted,
+        "duplicates": duplicates,
+        "telegram": telegram,
+    }
+

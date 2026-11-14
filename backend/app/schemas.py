@@ -16,6 +16,7 @@ class Preferences(BaseModel):
     markets: list[str] = ["India", "USA", "Other international markets"]
     roles: list[str] = DEFAULT_ROLES
     india_min_ctc_lpa: float = 15
+    usa_min_salary_usd_annual: float = 40000
     preferred_locations: list[str] = ["Bangalore"]
     include_remote: bool = True
     experience_levels: list[str] = ["Fresher", "0-2 years"]
@@ -25,7 +26,7 @@ class Preferences(BaseModel):
     salary_unknown_policy: Literal["review", "skip"] = "review"
 
 class BoardSource(BaseModel):
-    provider: Literal["greenhouse", "lever"]
+    provider: Literal["greenhouse", "lever", "ashby"]
     slug: str = Field(min_length=1, max_length=120)
     company_name: str = Field(min_length=1, max_length=200)
 

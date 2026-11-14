@@ -24,7 +24,7 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 1. Copy `.env.example` to `.env`.
 2. Add your Telegram bot token and chat ID (instructions below).
 3. Run `docker compose up --build -d`.
-4. Open `http://localhost:8000/docs`.
+4. Open the dashboard at `http://localhost:3000` and API docs at `http://localhost:8000/docs`.
 5. Browse the curated employer directory with `GET /api/v1/sources/catalog`; import selected entries with `POST /api/v1/sources/catalog/import`, which rechecks each live feed before saving.
 6. Validate public company-board feeds with `POST /api/v1/sources/boards/validate` before registering them; validation reports live listing counts and does not save anything.
 7. Register one or more company boards using `POST /api/v1/sources/boards` or bulk import using `POST /api/v1/sources/boards/bulk`.
@@ -43,6 +43,7 @@ The worker and scheduler are separate services. They continue running when your 
 
 ## API endpoints
 - `GET /health` — API health
+- Dashboard — `http://localhost:3000` (served by Nginx and proxied to the API)
 - `GET/PUT /api/v1/preferences` — candidate filters
 - `GET /api/v1/sources/catalog` — view the curated employer board directory
 - `POST /api/v1/sources/catalog/import` — live-check and import selected curated boards (body requires only `provider` and `slug`)
@@ -76,4 +77,4 @@ uvicorn app.main:app --reload
 Run tests from `backend` with `python -m pytest -q`.
 
 ## Project status
-This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, resume intelligence, the React dashboard and supported application workflows remain future milestones. Source health monitoring is implemented but still needs broader operational testing.
+This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, resume intelligence, authentication and supported application workflows remain future milestones. Source health monitoring is implemented but still needs broader operational testing.

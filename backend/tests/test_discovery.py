@@ -335,7 +335,7 @@ def test_posted_at_rejects_invalid_values():
     assert normalize_posted_at("not-a-date") is None
 
 
-def test_recruitee_job_extraction():
+def test_recruitee_job_extraction(monkeypatch):
     payload = {
         "offers": [{
             "id": 123,

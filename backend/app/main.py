@@ -356,6 +356,47 @@ async def run_discovery():
     return await run_discovery_cycle()
 
 
+@app.get("/api/v1/monitoring/boards")
+def board_health_status(db: Session = Depends(get_db)):
+    from app.models import BoardSourceHealthRecord
+
+    boards = db.scalars(
+        select(BoardSourceRecord).order_by(BoardSourceRecord.company_name.asc())
+    ).all()
+    health_rows = db.scalars(select(BoardSourceHealthRecord)).all()
+    health_by_key = {(row.provider, row.slug): row for row in health_rows}
+    return [
+        {
+            "id": board.id,
+            "provider": board.provider,
+            "slug": board.slug,
+            "company_name": board.company_name,
+            "last_checked_at": (
+                health_by_key[(board.provider, board.slug)].last_checked_at.isoformat()
+                if (board.provider, board.slug) in health_by_key else None
+            ),
+            "last_success_at": (
+                health_by_key[(board.provider, board.slug)].last_success_at.isoformat()
+                if (board.provider, board.slug) in health_by_key
+                and health_by_key[(board.provider, board.slug)].last_success_at else None
+            ),
+            "last_job_count": (
+                health_by_key[(board.provider, board.slug)].last_job_count
+                if (board.provider, board.slug) in health_by_key else None
+            ),
+            "consecutive_failures": (
+                health_by_key[(board.provider, board.slug)].consecutive_failures
+                if (board.provider, board.slug) in health_by_key else 0
+            ),
+            "last_error": (
+                health_by_key[(board.provider, board.slug)].last_error
+                if (board.provider, board.slug) in health_by_key else None
+            ),
+        }
+        for board in boards
+    ]
+
+
 @app.get("/api/v1/monitoring/status")
 def monitoring_status(db: Session = Depends(get_db)):
     from app.models import NotificationRecord

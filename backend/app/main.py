@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine, get_db
 from app.models import BoardSourceRecord, JobRecord, PreferencesRecord
-from app.schemas import BoardSource, JobIn, JobOut, Preferences
+from app.schemas import BoardSource, CatalogBoardSelection, JobIn, JobOut, Preferences
 from app.screening import evaluate_job, extract_salary
 from app.discovery import discover_board
 
@@ -192,7 +192,12 @@ async def validate_boards(payload: list[BoardSource]):
     ) as client:
         for board in payload:
             try:
-                jobs = await discover_board(client, board)
+                source = BoardSource(
+                    provider=board.provider,
+                    slug=board.slug,
+                    company_name=catalog_item["company_name"],
+                )
+                jobs = await discover_board(client, source)
                 results.append({
                     "provider": board.provider,
                     "slug": board.slug,
@@ -232,7 +237,7 @@ def get_employer_board_catalog():
 
 @app.post("/api/v1/sources/catalog/import")
 async def import_employer_board_catalog(
-    payload: list[BoardSource],
+    payload: list[CatalogBoardSelection],
     db: Session = Depends(get_db),
 ):
     """Live-check selected catalog boards and register only reachable public feeds."""

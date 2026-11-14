@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from celery import Celery
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 DISCOVERY_INTERVAL_SECONDS = max(
     60, int(os.getenv("DISCOVERY_INTERVAL_SECONDS", "120"))
 )

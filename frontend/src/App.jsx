@@ -53,7 +53,12 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
-  const [lastUpdated, setLastUpdated] = useState(null);\n  const [applications, setApplications] = useState([]);\n  const [applicationEmail, setApplicationEmail] = useState("sriramkn2004@gmail.com");\n  const [applicationBusy, setApplicationBusy] = useState(false);\n  const [applicationMessage, setApplicationMessage] = useState("");\n  const [submissionReferences, setSubmissionReferences] = useState({});
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [applications, setApplications] = useState([]);
+  const [applicationEmail, setApplicationEmail] = useState("sriramkn2004@gmail.com");
+  const [applicationBusy, setApplicationBusy] = useState(false);
+  const [applicationMessage, setApplicationMessage] = useState("");
+  const [submissionReferences, setSubmissionReferences] = useState({});
 
   const load = useCallback(async () => {
     setError("");
@@ -74,7 +79,8 @@ export default function App() {
       setHasMore(jobRows.length === 50);
       setBoards(boardRows);
       setPreferences(prefs);
-      setCatalog(catalogData.boards || []);\n      setApplications(applicationRows);
+      setCatalog(catalogData.boards || []);
+      setApplications(applicationRows);
       setLastUpdated(new Date());
     } catch (err) {
       setError(err.message || "Could not connect to the API.");

@@ -17,7 +17,7 @@ def test_remoteok_feed_extraction(monkeypatch):
             "location": "Worldwide",
             "date": "2026-11-13T10:00:00Z",
             "url": "https://remoteok.com/remote-jobs/remote-101",
-            "apply_url": "https://remoteok.com/remote-jobs/remote-101",
+            "apply_url": "https://employer.example/apply/101",
         },
     ]
 
@@ -36,6 +36,7 @@ def test_remoteok_feed_extraction(monkeypatch):
     assert jobs[0].company == "Remote Acme"
     assert jobs[0].title == "Python Backend Engineer"
     assert jobs[0].posted_at == "2026-11-13T10:00:00+00:00"
+    # Remote OK requires a followed link to its canonical listing.
     assert str(jobs[0].apply_url) == "https://remoteok.com/remote-jobs/remote-101"
 
 
@@ -89,3 +90,52 @@ def test_smartrecruiters_fetches_full_public_posting():
     assert jobs[0].description == "Build data pipelines\\n\\nPython and SQL"
     assert jobs[0].posted_at == "2026-11-12T08:30:00+00:00"
     assert str(jobs[0].apply_url) == "https://www.smartrecruiters.com/Acme/202"
+
+def test_workable_public_careers_feed_extraction():
+    payload = {
+        "name": "Acme Technologies",
+        "jobs": [
+            {
+                "shortcode": "PY123",
+                "title": "Python Developer",
+                "description": "Build backend services",
+                "published_on": "2026-11-13T10:00:00Z",
+                "employment_type": "Full-time",
+                "application_url": "https://apply.workable.com/acme/j/PY123/",
+                "url": "https://apply.workable.com/acme/j/PY123",
+                "location": {
+                    "location_str": "Bengaluru, Karnataka, India",
+                    "country_code": "IN",
+                    "telecommuting": False,
+                },
+                "salary": {
+                    "salary_from": 1500000,
+                    "salary_to": 2200000,
+                    "salary_currency": "inr",
+                },
+            }
+        ],
+    }
+
+    def handler(request):
+        assert request.url.host == "www.workable.com"
+        assert request.url.path == "/api/accounts/acme"
+        assert request.url.params["details"] == "true"
+        return httpx.Response(200, json=payload, request=request)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            board = BoardSource(provider="workable", slug="acme", company_name="Acme")
+            return await discover_board(client, board)
+
+    jobs = asyncio.run(run())
+    assert len(jobs) == 1
+    assert jobs[0].source_job_id == "workable:acme:PY123"
+    assert jobs[0].company == "Acme Technologies"
+    assert jobs[0].title == "Python Developer"
+    assert jobs[0].country == "India"
+    assert jobs[0].salary_min == 1500000
+    assert jobs[0].salary_max == 2200000
+    assert jobs[0].salary_currency == "INR"
+    assert jobs[0].posted_at == "2026-11-13T10:00:00+00:00"
+    assert str(jobs[0].apply_url) == "https://apply.workable.com/acme/j/PY123/"

@@ -224,7 +224,7 @@ async def validate_boards(payload: list[BoardSource]):
 
 @app.get("/api/v1/sources/catalog")
 def get_employer_board_catalog():
-    catalog_path = Path(__file__).resolve().parents[2] / "data" / "employer-board-catalog.json"
+    catalog_path = Path(__file__).resolve().parents[1] / "data" / "employer-board-catalog.json"
     if not catalog_path.is_file():
         raise HTTPException(503, "Employer board catalog is unavailable")
     return json.loads(catalog_path.read_text(encoding="utf-8"))
@@ -241,7 +241,7 @@ async def import_employer_board_catalog(
     if len(payload) > 25:
         raise HTTPException(400, "A maximum of 25 catalog boards can be imported at once")
 
-    catalog_path = Path(__file__).resolve().parents[2] / "data" / "employer-board-catalog.json"
+    catalog_path = Path(__file__).resolve().parents[1] / "data" / "employer-board-catalog.json"
     if not catalog_path.is_file():
         raise HTTPException(503, "Employer board catalog is unavailable")
     catalog_data = json.loads(catalog_path.read_text(encoding="utf-8"))

@@ -13,8 +13,25 @@ from app.screening import evaluate_job, extract_salary
 def initialize_database() -> None:
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
+        changed = False
         if db.get(PreferencesRecord, 1) is None:
             db.add(PreferencesRecord(id=1, payload=Preferences().model_dump()))
+            changed = True
+        # Remote OK publishes a free public JSON feed; register it by default.
+        remoteok = db.scalar(
+            select(BoardSourceRecord).where(
+                BoardSourceRecord.provider == "remoteok",
+                BoardSourceRecord.slug == "global",
+            )
+        )
+        if remoteok is None:
+            db.add(BoardSourceRecord(
+                provider="remoteok",
+                slug="global",
+                company_name="Remote OK",
+            ))
+            changed = True
+        if changed:
             db.commit()
 
 

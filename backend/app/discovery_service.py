@@ -81,12 +81,7 @@ async def run_discovery_cycle() -> dict:
             (failure.provider, failure.slug): failure.error
             for failure in report.failures
         }
-        jobs_by_key = {}
-        for job in jobs:
-            # Source IDs are provider-prefixed; board-specific providers include the slug.
-            parts = job.source_job_id.split(":")
-            key = (job.source, parts[1] if len(parts) > 2 else "global")
-            jobs_by_key[key] = jobs_by_key.get(key, 0) + 1
+        jobs_by_key = report.board_job_counts
 
         for board in boards:
             key = (board.provider, board.slug)

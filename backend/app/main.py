@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
 
+import httpx
+
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -8,7 +10,7 @@ from app.database import Base, SessionLocal, engine, get_db
 from app.models import BoardSourceRecord, JobRecord, PreferencesRecord
 from app.schemas import BoardSource, JobIn, JobOut, Preferences
 from app.screening import evaluate_job, extract_salary
-from app.discovery import discover_all_with_report
+from app.discovery import discover_board
 
 
 def initialize_database() -> None:
@@ -182,34 +184,38 @@ async def validate_boards(payload: list[BoardSource]):
     if len(payload) > 25:
         raise HTTPException(400, "A maximum of 25 board sources can be validated at once")
 
-    report = await discover_all_with_report(payload)
-    failures = {
-        (item.provider, item.slug): item.error
-        for item in report.failures
-    }
+    results = []
+    async with httpx.AsyncClient(
+        headers={"User-Agent": "AIJobHunter/0.1 (personal job search)"}
+    ) as client:
+        for board in payload:
+            try:
+                jobs = await discover_board(client, board)
+                results.append({
+                    "provider": board.provider,
+                    "slug": board.slug,
+                    "company_name": board.company_name,
+                    "valid": True,
+                    "live_jobs": len(jobs),
+                    "error": None,
+                })
+            except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                results.append({
+                    "provider": board.provider,
+                    "slug": board.slug,
+                    "company_name": board.company_name,
+                    "valid": False,
+                    "live_jobs": 0,
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
+
+    valid_count = sum(1 for item in results if item["valid"])
     return {
-        "checked_count": report.boards_checked,
-        "valid_count": report.boards_succeeded,
-        "invalid_count": report.boards_failed,
-        "total_live_jobs": len(report.jobs),
-        "results": [
-            {
-                "provider": board.provider,
-                "slug": board.slug,
-                "company_name": board.company_name,
-                "valid": (board.provider, board.slug) not in failures,
-                "live_jobs": sum(
-                    1 for job in report.jobs
-                    if job.source == board.provider
-                    and (
-                        job.source_job_id.startswith(f"{board.provider}:{board.slug}:")
-                        or job.source_job_id.startswith(f"{board.provider}:")
-                    )
-                ),
-                "error": failures.get((board.provider, board.slug)),
-            }
-            for board in payload
-        ],
+        "checked_count": len(results),
+        "valid_count": valid_count,
+        "invalid_count": len(results) - valid_count,
+        "total_live_jobs": sum(item["live_jobs"] for item in results),
+        "results": results,
         "saved": False,
     }
 

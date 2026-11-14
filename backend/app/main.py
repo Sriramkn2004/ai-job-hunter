@@ -378,7 +378,7 @@ def list_jobs(
     db: Session = Depends(get_db),
 ):
     """Search and page through discovered jobs without changing the list response shape."""
-    statement = select(JobRecord).order_by(JobRecord.discovered_at.desc())
+    statement = select(JobRecord).order_by(JobRecord.discovered_at.desc(), JobRecord.id.desc())
     if status:
         if status not in {"matched", "review", "skipped"}:
             raise HTTPException(400, "status must be matched, review or skipped")

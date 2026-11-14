@@ -279,7 +279,7 @@ async def discover_board(
                 country = country or infer_country(location)
                 job_ad = detail.get("jobAd") or {}
                 sections = job_ad.get("sections") or {} if isinstance(job_ad, dict) else {}
-                description = "\\n\\n".join(
+                description = "\n\n".join(
                     str(section.get("text") or "")
                     for section in sections.values()
                     if isinstance(section, dict) and section.get("text")
@@ -337,7 +337,7 @@ async def discover_board(
                 heading = (section.findtext("name") or "").strip()
                 value = (section.findtext("value") or "").strip()
                 if heading and value:
-                    description_parts.append(f"{heading}\\n{value}")
+                    description_parts.append(f"{heading}\n{value}")
                 elif value:
                     description_parts.append(value)
             jobs.append(JobIn(
@@ -345,7 +345,7 @@ async def discover_board(
                 source_job_id=f"personio:{board.slug}:{raw_id}",
                 company=board.company_name,
                 title=title,
-                description="\\n\\n".join(description_parts),
+                description="\n\n".join(description_parts),
                 location=location,
                 country=infer_country(location),
                 employment_type=position.findtext("employmentType"),

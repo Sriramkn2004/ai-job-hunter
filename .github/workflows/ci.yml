@@ -24,7 +24,7 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: sqlite:///./ci_job_hunter.db
-        run: pytest -q
+        run: python -m pytest -q
 
   frontend:
     name: Frontend production build

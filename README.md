@@ -6,7 +6,7 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 - FastAPI API for preferences, job ingestion, discovery and monitoring status
 - SQLAlchemy persistence for preferences, registered boards, jobs and notification delivery attempts
 - PostgreSQL for Docker deployments and SQLite for local development
-- Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters and Workable public company-board adapters, plus Remote OK's public remote-jobs feed (a company board slug is required)
+- Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters and Workable public company-board adapters, plus Remote OK's public feed (enabled automatically)
 - Celery worker + Celery Beat scheduler backed by Redis
 - Configurable discovery interval (default: every 120 seconds; minimum: 60 seconds)
 - Telegram alerts for new matched/review jobs, with retry on later cycles if delivery fails
@@ -24,7 +24,7 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 2. Add your Telegram bot token and chat ID (instructions below).
 3. Run `docker compose up --build -d`.
 4. Open `http://localhost:8000/docs`.
-5. Register a Greenhouse or Lever board using `POST /api/v1/sources/boards`.
+5. Register one or more company boards using `POST /api/v1/sources/boards` or bulk import using `POST /api/v1/sources/boards/bulk`.
 6. List and manage registered boards with `GET` and `DELETE /api/v1/sources/boards`.
 6. Check `GET /api/v1/monitoring/status` and trigger a one-off scan with `POST /api/v1/discovery/run`.
 
@@ -41,7 +41,8 @@ The worker and scheduler are separate services. They continue running when your 
 ## API endpoints
 - `GET /health` — API health
 - `GET/PUT /api/v1/preferences` — candidate filters
-- `POST /api/v1/sources/boards` — register a Greenhouse, Lever, Ashby, Recruitee or SmartRecruiters board (Remote OK uses the reserved slug `global`) (idempotent)
+- `POST /api/v1/sources/boards` — register one company board (idempotent)
+- `POST /api/v1/sources/boards/bulk` — register up to 100 company boards in one request; duplicate entries are skipped
 - `GET /api/v1/sources/boards` — list registered boards
 - `DELETE /api/v1/sources/boards/{board_id}` — remove a board from scheduled monitoring
 - `POST /api/v1/discovery/run` — run a scan immediately
@@ -50,7 +51,7 @@ The worker and scheduler are separate services. They continue running when your 
 - `POST /api/v1/notifications/telegram/test` — send a test alert
 
 ## Discovery coverage and latency
-The starter's two-minute schedule applies only to registered registered Greenhouse/Lever/Ashby/Recruitee/SmartRecruiters/Workable company boards and the Remote OK feed. It is not a universal search index and cannot guarantee detection at the instant a role is published. Other sources (including LinkedIn, Naukri and Indeed) must be connected through permitted APIs, approved data providers or user-authorized flows. Polling frequency must respect each source's terms and rate limits.
+The starter's two-minute schedule applies only to registered Greenhouse/Lever/Ashby/Recruitee/SmartRecruiters/Workable company boards and the Remote OK feed. It is not a universal search index and cannot guarantee detection at the instant a role is published. Other sources (including LinkedIn, Naukri and Indeed) must be connected through permitted APIs, approved data providers or user-authorized flows. Polling frequency must respect each source's terms and rate limits.
 
 ## Application safety
 This milestone only discovers and alerts; it does not submit applications. Future application workflows must not bypass access controls or CAPTCHAs, must not invent candidate information, and must request confirmation for legal declarations, work authorization, demographic information and consent. A job must only be marked applied after a verifiable destination confirmation.

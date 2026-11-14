@@ -77,4 +77,4 @@ uvicorn app.main:app --reload
 Run tests from `backend` with `python -m pytest -q`.
 
 ## Project status
-This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, resume intelligence, authentication and supported application workflows remain future milestones. Source health monitoring is implemented but still needs broader operational testing.
+This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, resume intelligence and supported application workflows remain future milestones. Source health monitoring is implemented but still needs broader operational testing.

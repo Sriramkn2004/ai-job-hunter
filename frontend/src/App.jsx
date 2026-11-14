@@ -53,7 +53,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);\n  const [applications, setApplications] = useState([]);\n  const [applicationEmail, setApplicationEmail] = useState("sriramkn2004@gmail.com");\n  const [applicationBusy, setApplicationBusy] = useState(false);\n  const [applicationMessage, setApplicationMessage] = useState("");\n  const [submissionReferences, setSubmissionReferences] = useState({});
 
   const load = useCallback(async () => {
     setError("");
@@ -74,7 +74,7 @@ export default function App() {
       setHasMore(jobRows.length === 50);
       setBoards(boardRows);
       setPreferences(prefs);
-      setCatalog(catalogData.boards || []);
+      setCatalog(catalogData.boards || []);\n      setApplications(applicationRows);
       setLastUpdated(new Date());
     } catch (err) {
       setError(err.message || "Could not connect to the API.");
@@ -108,6 +108,77 @@ export default function App() {
       setImportMessage(err.message || "Catalog import failed.");
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function prepareApplication(job) {
+    setApplicationBusy(true);
+    setApplicationMessage("");
+    try {
+      await request(`${API}/applications/drafts`, {
+        method: "POST",
+        body: JSON.stringify({ source_job_id: job.source_job_id, candidate_email: applicationEmail }),
+      });
+      setApplicationMessage(`Prepared a truthful draft for ${job.title} at ${job.company}.`);
+      await load();
+    } catch (err) {
+      setApplicationMessage(err.message || "Could not prepare application.");
+    } finally {
+      setApplicationBusy(false);
+    }
+  }
+
+  async function saveApplication(application) {
+    setApplicationBusy(true);
+    try {
+      await request(`${API}/applications/${application.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          cover_letter: application.cover_letter,
+          account_required: application.account_required,
+          account_status: application.account_status,
+          notes: application.notes,
+        }),
+      });
+      setApplicationMessage(`Saved application for ${application.company}.`);
+      await load();
+    } catch (err) {
+      setApplicationMessage(err.message || "Could not save application.");
+    } finally {
+      setApplicationBusy(false);
+    }
+  }
+
+  async function approveApplication(application) {
+    if (!window.confirm(`Approve the prepared application for ${application.title} at ${application.company}? This records approval but does not submit it to the employer.`)) return;
+    setApplicationBusy(true);
+    try {
+      await request(`${API}/applications/${application.id}/approve`, { method: "POST" });
+      setApplicationMessage("Approved and added to your application tracker. A supported employer submission connector is not available yet.");
+      await load();
+    } catch (err) {
+      setApplicationMessage(err.message || "Could not approve application.");
+    } finally {
+      setApplicationBusy(false);
+    }
+  }
+
+  async function recordSubmission(application) {
+    const reference = submissionReferences[application.id]?.trim();
+    if (!reference) {
+      setApplicationMessage("Add the employer confirmation reference before marking an application submitted.");
+      return;
+    }
+    if (!window.confirm("Record this application as submitted? Only do this after the employer confirms successful submission.")) return;
+    setApplicationBusy(true);
+    try {
+      await request(`${API}/applications/${application.id}/record-submission?confirmation_reference=${encodeURIComponent(reference)}`, { method: "POST" });
+      setApplicationMessage("Submission recorded.");
+      await load();
+    } catch (err) {
+      setApplicationMessage(err.message || "Could not record submission.");
+    } finally {
+      setApplicationBusy(false);
     }
   }
 
@@ -180,9 +251,38 @@ export default function App() {
               <div className="job-meta"><span>{job.source}</span><span><Clock3 size={13} /> {formatDate(job.posted_at)}</span>{job.salary_min || job.salary_max ? <span>{job.salary_currency || ""} {job.salary_min ?? "—"}–{job.salary_max ?? "—"} {job.salary_period || ""}</span> : <span>Salary not listed</span>}</div>
               {job.screening?.reasons?.length > 0 && <p className="job-reason">{job.screening.reasons.slice(0, 2).join(" · ")}</p>}
             </div>
-            <a className="open-job" href={job.apply_url} target="_blank" rel="noreferrer" aria-label={`Open ${job.title}`}><ExternalLink size={17} /></a>
+            <div className="job-actions"><button className="button secondary prepare-button" onClick={() => prepareApplication(job)} disabled={applicationBusy || !job.apply_url}>{applications.some((item) => item.source_job_id === job.source_job_id) ? "Draft prepared" : "Prepare application"}</button><a className="open-job" href={job.apply_url} target="_blank" rel="noreferrer" aria-label={`Open ${job.title}`}><ExternalLink size={17} /></a></div>
           </article>)}</div>}
         <div className="pagination"><span>Showing {jobs.length ? offset + 1 : 0}–{offset + jobs.length} jobs</span><div><button className="button secondary" onClick={() => setOffset((value) => Math.max(0, value - 50))} disabled={offset === 0 || loading}>Previous</button><button className="button secondary" onClick={() => setOffset((value) => value + 50)} disabled={!hasMore || loading}>Next</button></div></div><p className="list-footnote">Listings link to their original source; verify details before applying.</p>
+      </section>
+
+      <section className="content-section" id="applications">
+        <div className="section-heading"><div><p className="eyebrow">APPLICATION PIPELINE</p><h2>Application tracker</h2><p>Prepare truthful, editable applications and track account setup and confirmed submissions.</p></div><span className="count-pill">{applications.length} applications</span></div>
+        <div className="application-profile">
+          <label>Application email<input value={applicationEmail} onChange={(event) => setApplicationEmail(event.target.value)} type="email" /></label>
+          <span>Use an inbox you control. Never enter passwords or OTPs here.</span>
+        </div>
+        {applicationMessage && <div className="application-message">{applicationMessage}</div>}
+        {applications.length === 0 ? <div className="empty-state compact">No application drafts yet. Choose Prepare application on a matched or review job.</div> :
+          <div className="application-list">{applications.map((application) => <article className="application-card" key={application.id}>
+            <div className="application-card-head"><div><h3>{application.title}</h3><p>{application.company} · {application.candidate_email}</p></div><span className={`application-status ${application.status}`}>{application.status.replaceAll("_", " ")}</span></div>
+            <label className="application-field">Cover letter<textarea value={application.cover_letter} onChange={(event) => setApplications((rows) => rows.map((row) => row.id === application.id ? { ...row, cover_letter: event.target.value } : row))} rows={7} disabled={application.status === "submitted" || application.status === "withdrawn"} /></label>
+            <div className="application-controls">
+              <label><input type="checkbox" checked={application.account_required} disabled={application.status === "submitted"} onChange={(event) => setApplications((rows) => rows.map((row) => row.id === application.id ? { ...row, account_required: event.target.checked, account_status: event.target.checked ? "required" : "not_required" } : row))} /> Employer account required</label>
+              <select value={application.account_status} disabled={application.status === "submitted"} onChange={(event) => setApplications((rows) => rows.map((row) => row.id === application.id ? { ...row, account_status: event.target.value, account_required: event.target.value !== "not_required" } : row))}>
+                <option value="not_required">No account needed</option><option value="required">Account needed</option><option value="created">Account created</option><option value="blocked">Unable to create / blocked</option>
+              </select>
+            </div>
+            <label className="application-field">Notes<textarea value={application.notes} onChange={(event) => setApplications((rows) => rows.map((row) => row.id === application.id ? { ...row, notes: event.target.value } : row))} rows={2} placeholder="Recruiter, account setup notes, questions to verify…" disabled={application.status === "submitted"} /></label>
+            <div className="application-controls application-actions">
+              <a href={application.apply_url} target="_blank" rel="noreferrer">Open employer application <ExternalLink size={13} /></a>
+              <button className="button secondary" onClick={() => saveApplication(application)} disabled={applicationBusy || application.status === "submitted"}>Save draft</button>
+              {application.status === "draft" || application.status === "ready" ? <button className="button primary" onClick={() => approveApplication(application)} disabled={applicationBusy}>Approve application</button> : null}
+            </div>
+            {application.status === "approved" && <div className="submission-note"><b>Approved, not submitted.</b> No authorized submission connector is configured for this employer yet. Complete the employer's form yourself, then record its confirmation below.</div>}
+            {application.status === "approved" && <div className="record-submission"><input value={submissionReferences[application.id] || ""} onChange={(event) => setSubmissionReferences((rows) => ({ ...rows, [application.id]: event.target.value }))} placeholder="Employer confirmation URL or reference" /><button className="button secondary" onClick={() => recordSubmission(application)} disabled={applicationBusy}>Record confirmed submission</button></div>}
+            {application.status === "submitted" && <p className="job-reason">Recorded submission: {application.submission_reference}</p>}
+          </article>)}</div>}
       </section>
 
       <section className="content-section" id="sources">

@@ -128,6 +128,51 @@ def add_board(payload: BoardSource, db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/v1/sources/boards/bulk")
+def add_boards_bulk(payload: list[BoardSource], db: Session = Depends(get_db)):
+    """Register up to 100 verified ATS company boards in one request."""
+    if not payload:
+        raise HTTPException(400, "Provide at least one board source")
+    if len(payload) > 100:
+        raise HTTPException(400, "A maximum of 100 board sources can be added at once")
+
+    created = []
+    existing = []
+    seen = set()
+    for board in payload:
+        key = (board.provider, board.slug.strip().lower())
+        if key in seen:
+            existing.append({"provider": board.provider, "slug": board.slug, "reason": "duplicate_in_request"})
+            continue
+        seen.add(key)
+        record = db.scalar(
+            select(BoardSourceRecord).where(
+                BoardSourceRecord.provider == board.provider,
+                BoardSourceRecord.slug == board.slug,
+            )
+        )
+        if record is not None:
+            existing.append({"provider": board.provider, "slug": board.slug, "reason": "already_registered"})
+            continue
+        record = BoardSourceRecord(**board.model_dump())
+        db.add(record)
+        db.flush()
+        created.append({
+            "id": record.id,
+            "provider": record.provider,
+            "slug": record.slug,
+            "company_name": record.company_name,
+        })
+
+    db.commit()
+    return {
+        "created_count": len(created),
+        "skipped_count": len(existing),
+        "created": created,
+        "skipped": existing,
+    }
+
+
 @app.get("/api/v1/sources/boards")
 def list_boards(db: Session = Depends(get_db)):
     records = db.scalars(

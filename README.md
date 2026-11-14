@@ -25,8 +25,8 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 3. Run `docker compose up --build -d`.
 4. Open `http://localhost:8000/docs`.
 5. Validate public company-board feeds with `POST /api/v1/sources/boards/validate` before registering them; validation reports live listing counts and does not save anything.\n6. Register one or more company boards using `POST /api/v1/sources/boards` or bulk import using `POST /api/v1/sources/boards/bulk`.
-6. List and manage registered boards with `GET` and `DELETE /api/v1/sources/boards`.
-6. Check `GET /api/v1/monitoring/status` and trigger a one-off scan with `POST /api/v1/discovery/run`.
+7. List and manage registered boards with `GET` and `DELETE /api/v1/sources/boards`.
+8. Check `GET /api/v1/monitoring/status` and trigger a one-off scan with `POST /api/v1/discovery/run`.
 
 The worker and scheduler are separate services. They continue running when your laptop is off only after the Docker stack is deployed to an always-on cloud host.
 

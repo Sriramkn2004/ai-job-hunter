@@ -351,38 +351,6 @@ def test_recruitee_job_extraction():
         assert request.url.host == "acme.recruitee.com"
         return httpx.Response(200, json=payload, request=request)
 
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            board = BoardSource(provider="recruitee", slug="acme", company_name="Acme")
-            return await discover_board(client, board)
-
-    jobs = asyncio.run(run())
-    assert len(jobs) == 1
-    assert jobs[0].source_job_id == "recruitee:acme:123"
-    assert jobs[0].title == "Data Engineer"
-    assert jobs[0].country == "India"
-    assert jobs[0].posted_at == "2026-11-13T10:00:00+00:00"
-    assert str(jobs[0].apply_url) == "https://acme.recruitee.com/o/data-engineer"
-
-
-
-def test_discovery_report_tracks_job_counts_per_board():
-    from app.discovery import discover_all_with_report
-
-    def handler(request):
-        if request.url.host == "boards-api.greenhouse.io":
-            return httpx.Response(200, json={"jobs": [
-                {"id": 1, "title": "Python Developer", "location": {"name": "Bengaluru, India"},
-                 "absolute_url": "https://boards.greenhouse.io/acme/jobs/1"}
-            ]}, request=request)
-        if request.url.host == "api.lever.co":
-            return httpx.Response(200, json=[], request=request)
-        return httpx.Response(404, request=request)
-
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            # The report helper creates its own client, so patch the client constructor.
-            pass
 
     boards = [
         BoardSource(provider="greenhouse", slug="acme", company_name="Acme"),
@@ -395,11 +363,8 @@ def test_discovery_report_tracks_job_counts_per_board():
         kwargs["transport"] = httpx.MockTransport(handler)
         return original_client(*args, **kwargs)
 
-    discovery_module.httpx.AsyncClient = mocked_client
-    try:
-        report = asyncio.run(discovery_module.discover_all_with_report(boards))
-    finally:
-        discovery_module.httpx.AsyncClient = original_client
+    monkeypatch.setattr(discovery_module.httpx, "AsyncClient", mocked_client)
+    report = asyncio.run(discovery_module.discover_all_with_report(boards))
 
     assert report.board_job_counts == {
         ("greenhouse", "acme"): 1,

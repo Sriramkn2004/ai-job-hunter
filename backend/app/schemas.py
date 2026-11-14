@@ -54,3 +54,9 @@ class Screening(BaseModel):
 
 class JobOut(JobIn):
     screening: Screening | None = None
+
+
+class CatalogBoardSelection(BaseModel):
+    """A selection from the curated catalog; company names are server-controlled."""
+    provider: Literal["greenhouse", "lever", "ashby", "recruitee", "smartrecruiters", "remoteok", "workable", "personio"]
+    slug: str = Field(min_length=1, max_length=120)

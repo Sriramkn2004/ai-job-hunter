@@ -63,7 +63,8 @@ def normalize_posted_at(value) -> str | None:
 
 GREENHOUSE_URL = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
 LEVER_URL = "https://api.lever.co/v0/postings/{slug}?mode=json"
-ASHBY_URL = "https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"\nRECRUITEE_URL = "https://{slug}.recruitee.com/api/offers/"
+ASHBY_URL = "https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"
+RECRUITEE_URL = "https://{slug}.recruitee.com/api/offers/"
 
 @dataclass
 class DiscoveryFailure:
@@ -255,7 +256,8 @@ async def discover_board(
                 )
             )
         return jobs
-\n    raise ValueError(f"Unsupported job board provider: {board.provider}")
+
+    raise ValueError(f"Unsupported job board provider: {board.provider}")
 
 
 async def discover_all_with_report(

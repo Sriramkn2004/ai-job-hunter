@@ -4,6 +4,7 @@ import re
 
 import httpx
 import hashlib
+import xml.etree.ElementTree as ET
 from app.schemas import BoardSource, JobIn
 
 
@@ -301,6 +302,55 @@ async def discover_board(
             offset += len(rows)
             if len(rows) < page_size:
                 break
+        return jobs
+
+    if board.provider == "personio":
+        response = await client.get(
+            f"https://{board.slug}.jobs.personio.de/xml",
+            params={"language": "en"},
+            timeout=25,
+            follow_redirects=True,
+        )
+        response.raise_for_status()
+        try:
+            root = ET.fromstring(response.content)
+        except ET.ParseError as exc:
+            raise ValueError(f"Personio returned invalid XML: {exc}") from exc
+        if root.tag != "workzag-jobs":
+            raise ValueError("Personio returned an unexpected XML document")
+        jobs = []
+        for position in root.findall("position"):
+            raw_id = (position.findtext("id") or "").strip()
+            title = (position.findtext("name") or "").strip()
+            if not raw_id or not title:
+                continue
+            office = (position.findtext("office") or "").strip()
+            extra_offices = [
+                (item.text or "").strip()
+                for item in position.findall("./additionalOffices/office")
+                if (item.text or "").strip()
+            ]
+            location = ", ".join(part for part in [office, *extra_offices] if part)
+            description_parts = []
+            for section in position.findall("./jobDescriptions/jobDescription"):
+                heading = (section.findtext("name") or "").strip()
+                value = (section.findtext("value") or "").strip()
+                if heading and value:
+                    description_parts.append(f"{heading}\\n{value}")
+                elif value:
+                    description_parts.append(value)
+            jobs.append(JobIn(
+                source="personio",
+                source_job_id=f"personio:{board.slug}:{raw_id}",
+                company=board.company_name,
+                title=title,
+                description="\\n\\n".join(description_parts),
+                location=location,
+                country=infer_country(location),
+                employment_type=position.findtext("employmentType"),
+                posted_at=normalize_posted_at(position.findtext("createdAt")),
+                apply_url=f"https://{board.slug}.jobs.personio.de/job/{raw_id}",
+            ))
         return jobs
 
     if board.provider == "workable":

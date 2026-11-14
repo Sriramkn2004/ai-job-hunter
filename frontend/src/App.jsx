@@ -48,6 +48,8 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [country, setCountry] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +58,7 @@ export default function App() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const params = new URLSearchParams({ limit: "100" });
+      const params = new URLSearchParams({ limit: "50", offset: String(offset) });
       if (query.trim()) params.set("q", query.trim());
       if (status) params.set("status", status);
       if (country) params.set("country", country);
@@ -69,6 +71,7 @@ export default function App() {
       ]);
       setSummary(stats);
       setJobs(jobRows);
+      setHasMore(jobRows.length === 50);
       setBoards(boardRows);
       setPreferences(prefs);
       setCatalog(catalogData.boards || []);
@@ -78,7 +81,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [query, status, country]);
+  }, [query, status, country, offset]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -165,9 +168,9 @@ export default function App() {
       <section className="content-section" id="jobs">
         <div className="section-heading"><div><p className="eyebrow">OPPORTUNITIES</p><h2>Job inbox</h2><p>Review discovered roles and open the original employer application page.</p></div><span className="count-pill">{jobs.length} shown</span></div>
         <div className="filters">
-          <label className="search-box"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search title, company, skills or location" /></label>
-          <label className="select-box"><Filter size={16} /><select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option><option value="matched">Matched</option><option value="review">Needs review</option><option value="skipped">Skipped</option></select></label>
-          <label className="select-box"><Globe2 size={16} /><select value={country} onChange={(e) => setCountry(e.target.value)}><option value="">All markets</option><option value="India">India</option><option value="USA">USA</option><option value="UK">UK</option><option value="Canada">Canada</option><option value="Australia">Australia</option></select></label>
+          <label className="search-box"><Search size={17} /><input value={query} onChange={(e) => { setQuery(e.target.value); setOffset(0); }} placeholder="Search title, company, skills or location" /></label>
+          <label className="select-box"><Filter size={16} /><select value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); }}><option value="">All statuses</option><option value="matched">Matched</option><option value="review">Needs review</option><option value="skipped">Skipped</option></select></label>
+          <label className="select-box"><Globe2 size={16} /><select value={country} onChange={(e) => { setCountry(e.target.value); setOffset(0); }}><option value="">All markets</option><option value="India">India</option><option value="USA">USA</option><option value="UK">UK</option><option value="Canada">Canada</option><option value="Australia">Australia</option></select></label>
         </div>
         {loading ? <div className="empty-state"><LoaderCircle className="spin" size={24} /> Loading jobs…</div> : jobs.length === 0 ? <div className="empty-state"><BriefcaseBusiness size={26} /><b>No jobs found yet</b><span>Run discovery after adding employer boards, or adjust your filters.</span></div> :
           <div className="job-list">{jobs.map((job) => <article className="job-card" key={job.source_job_id}>
@@ -179,7 +182,7 @@ export default function App() {
             </div>
             <a className="open-job" href={job.apply_url} target="_blank" rel="noreferrer" aria-label={`Open ${job.title}`}><ExternalLink size={17} /></a>
           </article>)}</div>}
-        <p className="list-footnote">Showing up to 100 latest jobs. Listings link to their original source; verify details before applying.</p>
+        <div className="pagination"><span>Showing {jobs.length ? offset + 1 : 0}–{offset + jobs.length} jobs</span><div><button className="button secondary" onClick={() => setOffset((value) => Math.max(0, value - 50))} disabled={offset === 0 || loading}>Previous</button><button className="button secondary" onClick={() => setOffset((value) => value + 50)} disabled={!hasMore || loading}>Next</button></div></div><p className="list-footnote">Listings link to their original source; verify details before applying.</p>
       </section>
 
       <section className="content-section" id="sources">

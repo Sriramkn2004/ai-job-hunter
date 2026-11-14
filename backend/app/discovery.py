@@ -65,6 +65,7 @@ GREENHOUSE_URL = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content
 LEVER_URL = "https://api.lever.co/v0/postings/{slug}?mode=json"
 ASHBY_URL = "https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"
 RECRUITEE_URL = "https://{slug}.recruitee.com/api/offers/"
+WORKABLE_URL = "https://www.workable.com/api/accounts/{slug}?details=true"
 SMARTRECRUITERS_URL = "https://api.smartrecruiters.com/v1/companies/{slug}/postings?limit=100&offset=0&destination=PUBLIC"
 REMOTEOK_URL = "https://remoteok.com/api"
 
@@ -302,6 +303,60 @@ async def discover_board(
                 break
         return jobs
 
+    if board.provider == "workable":
+        response = await client.get(
+            WORKABLE_URL.format(slug=board.slug),
+            timeout=25,
+            follow_redirects=True,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        rows = payload.get("jobs", []) if isinstance(payload, dict) else []
+        if not isinstance(rows, list):
+            raise ValueError("Workable returned an invalid jobs list")
+        jobs = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            shortcode = row.get("shortcode") or row.get("id")
+            if not shortcode:
+                continue
+            location_data = row.get("location") or {}
+            if isinstance(location_data, dict):
+                location = location_data.get("location_str") or ", ".join(
+                    str(part) for part in (
+                        location_data.get("city"),
+                        location_data.get("region"),
+                        location_data.get("country"),
+                    ) if part
+                )
+                country = location_data.get("country") or location_data.get("country_code") or ""
+            else:
+                location = str(location_data)
+                country = row.get("country") or ""
+            country_codes = {
+                "IN": "India", "US": "USA", "GB": "UK", "UK": "UK",
+                "CA": "Canada", "AU": "Australia", "DE": "Germany", "SG": "Singapore",
+            }
+            country = country_codes.get(str(country).upper(), country) or infer_country(location)
+            salary = row.get("salary") or {}
+            jobs.append(JobIn(
+                source="workable",
+                source_job_id=f"workable:{board.slug}:{shortcode}",
+                company=(payload.get("name") if isinstance(payload, dict) else None) or board.company_name,
+                title=row.get("title") or row.get("name") or "Untitled",
+                description=row.get("description") or "",
+                location=location,
+                country=country,
+                employment_type=row.get("employment_type"),
+                salary_min=salary.get("salary_from") if isinstance(salary, dict) else None,
+                salary_max=salary.get("salary_to") if isinstance(salary, dict) else None,
+                salary_currency=(salary.get("salary_currency") or "").upper() if isinstance(salary, dict) and salary.get("salary_currency") else None,
+                posted_at=normalize_posted_at(row.get("published_on") or row.get("created_at")),
+                apply_url=row.get("application_url") or row.get("url") or row.get("shortlink"),
+            ))
+        return jobs
+
     if board.provider == "remoteok":
         response = await client.get(REMOTEOK_URL, timeout=30)
         response.raise_for_status()
@@ -312,10 +367,10 @@ async def discover_board(
         for row in payload:
             if not isinstance(row, dict) or not row.get("id") or not row.get("position"):
                 continue
-            apply_url = row.get("apply_url") or row.get("url")
+            apply_url = row.get("url") or row.get("apply_url")
             if not apply_url:
                 continue
-            location = row.get("location") or "Remote"
+            location = row.get("location") or ""
             jobs.append(JobIn(
                 source="remoteok",
                 source_job_id=f"remoteok:{row['id']}",

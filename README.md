@@ -58,13 +58,12 @@ The worker and scheduler are separate services. They continue running when your 
 - `GET /api/v1/jobs` — search and page through jobs using `q`, `status`, `country`, `company`, `source`, `limit` and `offset`
 - `GET /api/v1/monitoring/status` — counts and Telegram/scheduler configuration status
 - `GET /api/v1/monitoring/boards` — per-board check history, job counts and failure status
-- `POST /api/v1/notifications/telegram/test` — send a test alert
+- `POST /api/v1/notifications/telegram/test` — send a test alert\n- `GET /api/v1/applications` — list prepared and tracked applications\n- `POST /api/v1/applications/drafts` — create a truthful, editable cover-letter draft for a matched/review job\n- `PATCH /api/v1/applications/{id}` — update cover letter, employer-account requirement/status and notes\n- `POST /api/v1/applications/{id}/approve` — record candidate approval; does not submit to the employer\n- `POST /api/v1/applications/{id}/record-submission` — record an employer-confirmed submission reference
 
 ## Discovery coverage and latency
 The starter's two-minute schedule applies only to registered Greenhouse/Lever/Ashby/Recruitee/SmartRecruiters/Workable/Personio company boards and the Remote OK feed. It is not a universal search index and cannot guarantee detection at the instant a role is published. Other sources (including LinkedIn, Naukri and Indeed) must be connected through permitted APIs, approved data providers or user-authorized flows. Polling frequency must respect each source's terms and rate limits.
 
-## Application safety
-This milestone only discovers and alerts; it does not submit applications. Future application workflows must not bypass access controls or CAPTCHAs, must not invent candidate information, and must request confirmation for legal declarations, work authorization, demographic information and consent. A job must only be marked applied after a verifiable destination confirmation.
+## Application preparation and submission status\nThe dashboard can create an editable cover-letter draft from the candidate facts supplied in the resume, track employer account requirements, record candidate approval and track an employer-confirmed submission reference. Approval is not submission: generic ATS posting feeds do not provide authorized application-submission or account-creation APIs, so no employer account is created and no application is submitted automatically in this milestone. Complete the employer form on its official site. Never store employer passwords or OTPs in this app, bypass CAPTCHAs/access controls, or invent candidate details. Legal declarations, work authorization, demographic questions and consent must be answered by the candidate. Mark a job submitted only after receiving confirmation from the employer.
 
 ## Local development without Docker
 ```bash
@@ -79,4 +78,4 @@ uvicorn app.main:app --reload
 Run tests from `backend` with `python -m pytest -q`.
 
 ## Project status
-This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, resume intelligence and supported application workflows remain future milestones. Source health monitoring is implemented but still needs broader operational testing.
+This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, richer resume tailoring and authorized employer-specific submission integrations remain future milestones. The current application tracker is intended for a locally run personal instance.

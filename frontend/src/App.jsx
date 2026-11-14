@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity, AlertCircle, ArrowUpRight, BriefcaseBusiness, Building2,
-  CheckCircle2, Clock3, ExternalLink, Filter, Globe2, LoaderCircle,
+  CheckCircle2, ClipboardCheck, Clock3, ExternalLink, Filter, Globe2, LoaderCircle,
   RefreshCw, Search, ShieldCheck, Workflow
 } from "lucide-react";
 
@@ -198,7 +198,7 @@ export default function App() {
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><Workflow size={22} /></div><div><b>AI Job Hunter</b><span>DISCOVERY WORKSPACE</span></div></div>
-      <nav><a className="nav-item active"><Activity size={18} /> Overview</a><a className="nav-item" href="#jobs"><BriefcaseBusiness size={18} /> Job matches</a><a className="nav-item" href="#sources"><Globe2 size={18} /> Sources</a></nav>
+      <nav><a className="nav-item active"><Activity size={18} /> Overview</a><a className="nav-item" href="#jobs"><BriefcaseBusiness size={18} /> Job matches</a><a className="nav-item" href="#applications"><ClipboardCheck size={18} /> Applications</a><a className="nav-item" href="#sources"><Globe2 size={18} /> Sources</a></nav>
       <div className="sidebar-bottom"><div className="secure-note"><ShieldCheck size={17} /><span>Public-source discovery<br />No automatic applications</span></div><small>Personal job search workspace</small></div>
     </aside>
 

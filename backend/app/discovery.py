@@ -85,6 +85,7 @@ class DiscoveryReport:
     boards_failed: int = 0
     jobs: list[JobIn] = field(default_factory=list)
     failures: list[DiscoveryFailure] = field(default_factory=list)
+    board_job_counts: dict[tuple[str, str], int] = field(default_factory=dict)
 
 
 async def discover_board(
@@ -490,6 +491,7 @@ async def discover_all_with_report(
             try:
                 jobs = await discover_board(client, board)
                 report.jobs.extend(jobs)
+                report.board_job_counts[(board.provider, board.slug)] = len(jobs)
                 report.boards_succeeded += 1
 
             except (
@@ -499,6 +501,7 @@ async def discover_all_with_report(
                 TypeError,
                 AttributeError,
             ) as exc:
+                report.board_job_counts[(board.provider, board.slug)] = 0
                 report.boards_failed += 1
 
                 report.failures.append(

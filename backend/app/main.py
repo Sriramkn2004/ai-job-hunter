@@ -192,12 +192,7 @@ async def validate_boards(payload: list[BoardSource]):
     ) as client:
         for board in payload:
             try:
-                source = BoardSource(
-                    provider=board.provider,
-                    slug=board.slug,
-                    company_name=catalog_item["company_name"],
-                )
-                jobs = await discover_board(client, source)
+                jobs = await discover_board(client, board)
                 results.append({
                     "provider": board.provider,
                     "slug": board.slug,
@@ -291,7 +286,12 @@ async def import_employer_board_catalog(
                 continue
 
             try:
-                jobs = await discover_board(client, board)
+                source = BoardSource(
+                    provider=board.provider,
+                    slug=board.slug,
+                    company_name=catalog_item["company_name"],
+                )
+                jobs = await discover_board(client, source)
             except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
                 rejected.append({
                     "provider": board.provider, "slug": board.slug,

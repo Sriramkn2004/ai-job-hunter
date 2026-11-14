@@ -8,6 +8,7 @@ from app.database import Base, SessionLocal, engine, get_db
 from app.models import BoardSourceRecord, JobRecord, PreferencesRecord
 from app.schemas import BoardSource, JobIn, JobOut, Preferences
 from app.screening import evaluate_job, extract_salary
+from app.discovery import discover_all_with_report
 
 
 def initialize_database() -> None:
@@ -170,6 +171,46 @@ def add_boards_bulk(payload: list[BoardSource], db: Session = Depends(get_db)):
         "skipped_count": len(existing),
         "created": created,
         "skipped": existing,
+    }
+
+
+@app.post("/api/v1/sources/boards/validate")
+async def validate_boards(payload: list[BoardSource]):
+    """Check public board feeds before registration; this endpoint never saves sources."""
+    if not payload:
+        raise HTTPException(400, "Provide at least one board source")
+    if len(payload) > 25:
+        raise HTTPException(400, "A maximum of 25 board sources can be validated at once")
+
+    report = await discover_all_with_report(payload)
+    failures = {
+        (item.provider, item.slug): item.error
+        for item in report.failures
+    }
+    return {
+        "checked_count": report.boards_checked,
+        "valid_count": report.boards_succeeded,
+        "invalid_count": report.boards_failed,
+        "total_live_jobs": len(report.jobs),
+        "results": [
+            {
+                "provider": board.provider,
+                "slug": board.slug,
+                "company_name": board.company_name,
+                "valid": (board.provider, board.slug) not in failures,
+                "live_jobs": sum(
+                    1 for job in report.jobs
+                    if job.source == board.provider
+                    and (
+                        job.source_job_id.startswith(f"{board.provider}:{board.slug}:")
+                        or job.source_job_id.startswith(f"{board.provider}:")
+                    )
+                ),
+                "error": failures.get((board.provider, board.slug)),
+            }
+            for board in payload
+        ],
+        "saved": False,
     }
 
 

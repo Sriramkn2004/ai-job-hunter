@@ -9,8 +9,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine, get_db
-from app.models import BoardSourceRecord, JobRecord, PreferencesRecord
-from app.schemas import BoardSource, CatalogBoardSelection, JobIn, JobOut, Preferences
+from app.models import ApplicationRecord, BoardSourceRecord, JobRecord, PreferencesRecord
+from app.schemas import ApplicationDraftIn, ApplicationOut, ApplicationUpdateIn, BoardSource, CatalogBoardSelection, JobIn, JobOut, Preferences
 from app.screening import evaluate_job, extract_salary
 from app.discovery import discover_board
 
@@ -571,21 +571,145 @@ def test_telegram():
     return {"sent": True}
 
 
-@app.post("/api/v1/applications/{source_job_id}/approve")
-def approve_application(source_job_id: str, db: Session = Depends(get_db)):
-    record = db.scalar(
-        select(JobRecord).where(JobRecord.source_job_id == source_job_id)
+def _application_out(application: ApplicationRecord, job: JobRecord) -> ApplicationOut:
+    return ApplicationOut(
+        id=application.id,
+        source_job_id=application.source_job_id,
+        candidate_email=application.candidate_email,
+        status=application.status,
+        cover_letter=application.cover_letter,
+        account_required=application.account_required,
+        account_status=application.account_status,
+        notes=application.notes,
+        submission_reference=application.submission_reference,
+        approved_at=application.approved_at.isoformat() if application.approved_at else None,
+        submitted_at=application.submitted_at.isoformat() if application.submitted_at else None,
+        created_at=application.created_at.isoformat(),
+        updated_at=application.updated_at.isoformat(),
+        company=job.company,
+        title=job.title,
+        apply_url=job.apply_url,
     )
-    if record is None:
+
+
+def _draft_cover_letter(job: JobRecord) -> str:
+    # Every claim below is grounded in the candidate's supplied resume.
+    role = job.title
+    company = job.company
+    return (
+        f"Dear Hiring Team,\\n\\n"
+        f"I am writing to apply for the {role} position at {company}. "
+        "I am a Computer Science and Engineering graduate with hands-on experience "
+        "in data protection, process automation, analytics and software development.\\n\\n"
+        "As a Data Protection & Automation Intern at Vontier, I have worked with "
+        "Microsoft Purview, Power Automate, Power BI, Snowflake and Azure. I helped "
+        "engineer automation workflows that processed more than 10,000 assessments "
+        "in approximately 15 minutes, and developed reporting solutions for "
+        "assessment tracking, retention schedules and business integrity programmes.\\n\\n"
+        "My technical experience also includes Python, Django, FastAPI, React and SQL. "
+        "My projects include NET-PATROL-X, a cybersecurity platform exploring "
+        "federated learning and explainable AI, and an AI-powered attendance system "
+        "using facial recognition. I would welcome the opportunity to discuss how "
+        "this experience could contribute to your team.\\n\\n"
+        "Thank you for your time and consideration.\\n\\n"
+        "Sincerely,\\nSriram K N"
+    )
+
+
+@app.get("/api/v1/applications", response_model=list[ApplicationOut])
+def list_applications(db: Session = Depends(get_db)):
+    rows = db.execute(
+        select(ApplicationRecord, JobRecord)
+        .join(JobRecord, ApplicationRecord.source_job_id == JobRecord.source_job_id)
+        .order_by(ApplicationRecord.created_at.desc())
+    ).all()
+    return [_application_out(application, job) for application, job in rows]
+
+
+@app.post("/api/v1/applications/drafts", response_model=ApplicationOut)
+def create_application_draft(payload: ApplicationDraftIn, db: Session = Depends(get_db)):
+    job = db.scalar(select(JobRecord).where(JobRecord.source_job_id == payload.source_job_id))
+    if job is None:
         raise HTTPException(404, "Job not found")
-    status = (record.screening or {}).get("status")
-    if status not in {"matched", "review"}:
-        raise HTTPException(400, "This job is not eligible for review")
-    return {
-        "status": "approved_for_preparation",
-        "job": record.title,
-        "message": "Approval recorded. A permitted source-specific submission adapter is not enabled yet.",
-    }
+    if (job.screening or {}).get("status") not in {"matched", "review"}:
+        raise HTTPException(400, "Only matched or review jobs can be prepared")
+    if "@" not in payload.candidate_email or "." not in payload.candidate_email.rsplit("@", 1)[-1]:
+        raise HTTPException(422, "Enter a valid application email address")
+    existing = db.scalar(
+        select(ApplicationRecord).where(ApplicationRecord.source_job_id == payload.source_job_id)
+    )
+    if existing:
+        if existing.candidate_email != payload.candidate_email:
+            existing.candidate_email = payload.candidate_email
+            db.commit()
+            db.refresh(existing)
+        return _application_out(existing, job)
+    application = ApplicationRecord(
+        source_job_id=job.source_job_id,
+        candidate_email=payload.candidate_email,
+        cover_letter=_draft_cover_letter(job),
+        status="draft",
+    )
+    db.add(application)
+    db.commit()
+    db.refresh(application)
+    return _application_out(application, job)
+
+
+@app.patch("/api/v1/applications/{application_id}", response_model=ApplicationOut)
+def update_application(application_id: int, payload: ApplicationUpdateIn, db: Session = Depends(get_db)):
+    application = db.get(ApplicationRecord, application_id)
+    if application is None:
+        raise HTTPException(404, "Application draft not found")
+    if application.status in {"submitted", "withdrawn"}:
+        raise HTTPException(409, "Submitted or withdrawn applications are locked")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(application, field, value)
+    if application.account_status in {"required", "created", "blocked"}:
+        application.account_required = True
+    if not application.account_required:
+        application.account_status = "not_required"
+    db.commit()
+    db.refresh(application)
+    job = db.scalar(select(JobRecord).where(JobRecord.source_job_id == application.source_job_id))
+    return _application_out(application, job)
+
+
+@app.post("/api/v1/applications/{application_id}/approve", response_model=ApplicationOut)
+def approve_application(application_id: int, db: Session = Depends(get_db)):
+    application = db.get(ApplicationRecord, application_id)
+    if application is None:
+        raise HTTPException(404, "Application draft not found")
+    if application.status not in {"draft", "ready"}:
+        raise HTTPException(409, "Only draft or ready applications can be approved")
+    if not application.cover_letter.strip():
+        raise HTTPException(400, "Add a cover letter before approval")
+    application.status = "approved"
+    application.approved_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(application)
+    job = db.scalar(select(JobRecord).where(JobRecord.source_job_id == application.source_job_id))
+    return _application_out(application, job)
+
+
+@app.post("/api/v1/applications/{application_id}/record-submission", response_model=ApplicationOut)
+def record_application_submission(
+    application_id: int,
+    confirmation_reference: str = Query(min_length=5, max_length=1000),
+    db: Session = Depends(get_db),
+):
+    application = db.get(ApplicationRecord, application_id)
+    if application is None:
+        raise HTTPException(404, "Application draft not found")
+    if application.status != "approved":
+        raise HTTPException(409, "Approve the prepared application before recording submission")
+    application.status = "submitted"
+    application.submission_reference = confirmation_reference
+    application.submitted_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(application)
+    job = db.scalar(select(JobRecord).where(JobRecord.source_job_id == application.source_job_id))
+    return _application_out(application, job)
 
 @app.post("/api/v1/discovery/adzuna")
 async def run_adzuna_discovery(

@@ -6,7 +6,7 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 - FastAPI API for preferences, job ingestion, discovery and monitoring status
 - SQLAlchemy persistence for preferences, registered boards, jobs and notification delivery attempts
 - PostgreSQL for Docker deployments and SQLite for local development
-- Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters and Workable public company-board adapters, plus Remote OK's public feed (enabled automatically)
+- Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Workable and Personio public company-board adapters, plus Remote OK's public feed (enabled automatically)
 - Celery worker + Celery Beat scheduler backed by Redis
 - Configurable discovery interval (default: every 120 seconds; minimum: 60 seconds)
 - Telegram alerts for new matched/review jobs, with retry on later cycles if delivery fails
@@ -51,7 +51,7 @@ The worker and scheduler are separate services. They continue running when your 
 - `POST /api/v1/notifications/telegram/test` — send a test alert
 
 ## Discovery coverage and latency
-The starter's two-minute schedule applies only to registered Greenhouse/Lever/Ashby/Recruitee/SmartRecruiters/Workable company boards and the Remote OK feed. It is not a universal search index and cannot guarantee detection at the instant a role is published. Other sources (including LinkedIn, Naukri and Indeed) must be connected through permitted APIs, approved data providers or user-authorized flows. Polling frequency must respect each source's terms and rate limits.
+The starter's two-minute schedule applies only to registered Greenhouse/Lever/Ashby/Recruitee/SmartRecruiters/Workable/Personio company boards and the Remote OK feed. It is not a universal search index and cannot guarantee detection at the instant a role is published. Other sources (including LinkedIn, Naukri and Indeed) must be connected through permitted APIs, approved data providers or user-authorized flows. Polling frequency must respect each source's terms and rate limits.
 
 ## Application safety
 This milestone only discovers and alerts; it does not submit applications. Future application workflows must not bypass access controls or CAPTCHAs, must not invent candidate information, and must request confirmation for legal declarations, work authorization, demographic information and consent. A job must only be marked applied after a verifiable destination confirmation.

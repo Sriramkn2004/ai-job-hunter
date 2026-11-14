@@ -62,6 +62,7 @@ async def discover_board(
                     location=location.get("name", "")
                     if isinstance(location, dict)
                     else "",
+                    country="India" if any(city in str(location.get("name", "")).lower() for city in ("bangalore", "bengaluru", "hyderabad", "chennai", "mumbai", "pune", "gurugram", "gurgaon", "noida")) else ("USA" if "united states" in str(location.get("name", "")).lower() or "usa" in str(location.get("name", "")).lower() else ("India" if "india" in str(location.get("name", "")).lower() else "")),
                     apply_url=row.get("absolute_url"),
                 )
             )
@@ -98,6 +99,7 @@ async def discover_board(
                     title=row.get("text", "Untitled"),
                     description=row.get("descriptionPlain", "") or "",
                     location=categories.get("location", ""),
+                    country="India" if any(city in str(categories.get("location", "")).lower() for city in ("bangalore", "bengaluru", "hyderabad", "chennai", "mumbai", "pune", "gurugram", "gurgaon", "noida")) else ("USA" if "united states" in str(categories.get("location", "")).lower() or "usa" in str(categories.get("location", "")).lower() else ("India" if "india" in str(categories.get("location", "")).lower() else "")),
                     employment_type=categories.get("commitment"),
                     apply_url=row.get("hostedUrl") or row.get("applyUrl"),
                 )

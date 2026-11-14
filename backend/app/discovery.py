@@ -1,4 +1,6 @@
 ﻿from dataclasses import dataclass, field
+from datetime import datetime, timezone
+import re
 
 import httpx
 import hashlib
@@ -7,16 +9,17 @@ from app.schemas import BoardSource, JobIn
 
 
 def infer_country(location: str) -> str:
-    """Infer country only from explicit country names or common Indian cities."""
+    """Infer a country only from explicit country names or known Indian city names."""
     value = (location or "").strip().lower()
     if not value:
         return ""
 
     explicit_countries = {
         "india": "India",
-        "united states": "USA",
         "united states of america": "USA",
+        "united states": "USA",
         "usa": "USA",
+        "u.s.a.": "USA",
         "united kingdom": "UK",
         "canada": "Canada",
         "australia": "Australia",
@@ -24,7 +27,8 @@ def infer_country(location: str) -> str:
         "singapore": "Singapore",
     }
     for country_name, country_code in explicit_countries.items():
-        if country_name in value:
+        pattern = rf"(?<![a-z]){re.escape(country_name)}(?![a-z])"
+        if re.search(pattern, value):
             return country_code
 
     indian_cities = (
@@ -32,10 +36,29 @@ def infer_country(location: str) -> str:
         "pune", "gurugram", "gurgaon", "noida", "new delhi", "delhi",
         "kolkata", "ahmedabad", "kochi", "thiruvananthapuram",
     )
-    if any(city in value for city in indian_cities):
-        return "India"
-
+    for city in indian_cities:
+        pattern = rf"(?<![a-z]){re.escape(city)}(?![a-z])"
+        if re.search(pattern, value):
+            return "India"
     return ""
+
+
+def normalize_posted_at(value) -> str | None:
+    """Normalize source posting timestamps to UTC ISO-8601 without inventing dates."""
+    if value is None or value == "":
+        return None
+    try:
+        if isinstance(value, (int, float)) or str(value).strip().isdigit():
+            timestamp = float(value)
+            if timestamp > 10_000_000_000:  # millisecond epoch (e.g. Lever)
+                timestamp /= 1000
+            return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc).isoformat()
+    except (ValueError, TypeError, OverflowError, OSError):
+        return None
 
 
 GREENHOUSE_URL = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
@@ -96,6 +119,7 @@ async def discover_board(
                     if isinstance(location, dict)
                     else "",
                     country=infer_country(location.get("name", "") if isinstance(location, dict) else ""),
+                    posted_at=normalize_posted_at(row.get("first_published")),
                     apply_url=row.get("absolute_url"),
                 )
             )
@@ -134,6 +158,7 @@ async def discover_board(
                     location=categories.get("location", ""),
                     country=infer_country(categories.get("location", "")),
                     employment_type=categories.get("commitment"),
+                    posted_at=normalize_posted_at(row.get("createdAt")),
                     apply_url=row.get("hostedUrl") or row.get("applyUrl"),
                 )
             )
@@ -185,7 +210,7 @@ async def discover_board(
                     location=location,
                     country=country,
                     employment_type=row.get("employmentType"),
-                    posted_at=row.get("publishedAt"),
+                    posted_at=normalize_posted_at(row.get("publishedAt")),
                     apply_url=row.get("applyUrl") or job_url,
                 )
             )

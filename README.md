@@ -52,7 +52,7 @@ The worker and scheduler are separate services. They continue running when your 
 - `GET /api/v1/sources/boards` — list registered boards
 - `DELETE /api/v1/sources/boards/{board_id}` — remove a board from scheduled monitoring
 - `POST /api/v1/discovery/run` — run a scan immediately
-- `GET /api/v1/jobs` — list discovered jobs
+- `GET /api/v1/jobs` — search and page through jobs using `q`, `status`, `country`, `company`, `source`, `limit` and `offset`
 - `GET /api/v1/monitoring/status` — counts and Telegram/scheduler configuration status
 - `GET /api/v1/monitoring/boards` — per-board check history, job counts and failure status
 - `POST /api/v1/notifications/telegram/test` — send a test alert

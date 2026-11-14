@@ -251,11 +251,19 @@ async def import_employer_board_catalog(
     }
 
     imported, skipped, rejected = [], [], []
+    seen = set()
     async with httpx.AsyncClient(
         headers={"User-Agent": "AIJobHunter/0.1 (personal job search)"}
     ) as client:
         for board in payload:
             key = (board.provider, board.slug)
+            if key in seen:
+                skipped.append({
+                    "provider": board.provider, "slug": board.slug,
+                    "reason": "duplicate_in_request",
+                })
+                continue
+            seen.add(key)
             catalog_item = allowed.get(key)
             if catalog_item is None:
                 rejected.append({
@@ -286,14 +294,18 @@ async def import_employer_board_catalog(
                 })
                 continue
 
-            record = BoardSourceRecord(**board.model_dump())
+            record = BoardSourceRecord(
+                provider=board.provider,
+                slug=board.slug,
+                company_name=catalog_item["company_name"],
+            )
             db.add(record)
             db.flush()
             imported.append({
                 "id": record.id,
                 "provider": board.provider,
                 "slug": board.slug,
-                "company_name": board.company_name,
+                "company_name": catalog_item["company_name"],
                 "live_jobs_at_import": len(jobs),
                 "careers_url": catalog_item["careers_url"],
             })

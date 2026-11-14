@@ -4,7 +4,7 @@ from pathlib import Path
 
 import httpx
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -367,12 +367,40 @@ def ingest_job(payload: JobIn, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/jobs", response_model=list[JobOut])
-def list_jobs(status: str | None = None, db: Session = Depends(get_db)):
-    records = db.scalars(select(JobRecord).order_by(JobRecord.discovered_at.desc())).all()
-    jobs = [to_job_out(record) for record in records]
+def list_jobs(
+    status: str | None = None,
+    country: str | None = None,
+    source: str | None = None,
+    company: str | None = None,
+    q: str | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+):
+    """Search and page through discovered jobs without changing the list response shape."""
+    statement = select(JobRecord).order_by(JobRecord.discovered_at.desc())
     if status:
-        jobs = [job for job in jobs if job.screening and job.screening.status == status]
-    return jobs
+        if status not in {"matched", "review", "skipped"}:
+            raise HTTPException(400, "status must be matched, review or skipped")
+        statement = statement.where(
+            JobRecord.screening["status"].as_string() == status
+        )
+    if country:
+        statement = statement.where(JobRecord.country.ilike(f"%{country.strip()}%"))
+    if source:
+        statement = statement.where(JobRecord.source.ilike(f"%{source.strip()}%"))
+    if company:
+        statement = statement.where(JobRecord.company.ilike(f"%{company.strip()}%"))
+    if q:
+        term = f"%{q.strip()}%"
+        statement = statement.where(
+            JobRecord.title.ilike(term)
+            | JobRecord.company.ilike(term)
+            | JobRecord.description.ilike(term)
+            | JobRecord.location.ilike(term)
+        )
+    records = db.scalars(statement.offset(offset).limit(limit)).all()
+    return [to_job_out(record) for record in records]
 
 @app.post("/api/v1/jobs/rescreen")
 def rescreen_existing_jobs(db: Session = Depends(get_db)):

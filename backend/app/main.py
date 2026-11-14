@@ -598,22 +598,22 @@ def _draft_cover_letter(job: JobRecord) -> str:
     role = job.title
     company = job.company
     return (
-        f"Dear Hiring Team,\\n\\n"
+        f"Dear Hiring Team,\n\n"
         f"I am writing to apply for the {role} position at {company}. "
         "I am a Computer Science and Engineering graduate with hands-on experience "
-        "in data protection, process automation, analytics and software development.\\n\\n"
+        "in data protection, process automation, analytics and software development.\n\n"
         "As a Data Protection & Automation Intern at Vontier, I have worked with "
         "Microsoft Purview, Power Automate, Power BI, Snowflake and Azure. I helped "
         "engineer automation workflows that processed more than 10,000 assessments "
         "in approximately 15 minutes, and developed reporting solutions for "
-        "assessment tracking, retention schedules and business integrity programmes.\\n\\n"
+        "assessment tracking, retention schedules and business integrity programmes.\n\n"
         "My technical experience also includes Python, Django, FastAPI, React and SQL. "
         "My projects include NET-PATROL-X, a cybersecurity platform exploring "
         "federated learning and explainable AI, and an AI-powered attendance system "
         "using facial recognition. I would welcome the opportunity to discuss how "
-        "this experience could contribute to your team.\\n\\n"
-        "Thank you for your time and consideration.\\n\\n"
-        "Sincerely,\\nSriram K N"
+        "this experience could contribute to your team.\n\n"
+        "Thank you for your time and consideration.\n\n"
+        "Sincerely,\nSriram K N"
     )
 
 

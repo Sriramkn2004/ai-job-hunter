@@ -307,7 +307,7 @@ def test_ashby_job_extraction():
         assert jobs[0].location == "Bangalore, India"
         assert jobs[0].country == "India"
         assert jobs[0].employment_type == "FullTime"
-        assert jobs[0].posted_at == "2026-11-14T08:00:00Z"
+        assert jobs[0].posted_at == "2026-11-14T08:00:00+00:00"
 
         # Pydantic converts this field to HttpUrl.
         assert str(jobs[0].apply_url) == (

@@ -65,6 +65,8 @@ GREENHOUSE_URL = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content
 LEVER_URL = "https://api.lever.co/v0/postings/{slug}?mode=json"
 ASHBY_URL = "https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"
 RECRUITEE_URL = "https://{slug}.recruitee.com/api/offers/"
+SMARTRECRUITERS_URL = "https://api.smartrecruiters.com/v1/companies/{slug}/postings?limit=100&offset=0&destination=PUBLIC"
+REMOTEOK_URL = "https://remoteok.com/api"
 
 @dataclass
 class DiscoveryFailure:
@@ -216,6 +218,70 @@ async def discover_board(
                 )
             )
 
+        return jobs
+
+    if board.provider == "smartrecruiters":
+        response = await client.get(SMARTRECRUITERS_URL.format(slug=board.slug), timeout=20)
+        response.raise_for_status()
+        payload = response.json()
+        rows = payload.get("content", payload.get("postings", [])) if isinstance(payload, dict) else []
+        if not isinstance(rows, list):
+            raise ValueError("SmartRecruiters returned an invalid postings list")
+        jobs = []
+        for row in rows:
+            if not isinstance(row, dict) or not row.get("id"):
+                continue
+            location_data = row.get("location") or {}
+            if isinstance(location_data, dict):
+                city = location_data.get("city") or ""
+                region = location_data.get("region") or ""
+                country_name = location_data.get("country") or ""
+                location = ", ".join(part for part in (city, region, country_name) if part)
+            else:
+                location = str(location_data)
+            country = (location_data.get("country") or "") if isinstance(location_data, dict) else ""
+            country = country or infer_country(location)
+            apply_url = row.get("applyUrl") or row.get("jobAdUrl")
+            if not apply_url:
+                continue
+            jobs.append(JobIn(
+                source="smartrecruiters",
+                source_job_id=f"smartrecruiters:{board.slug}:{row['id']}",
+                company=board.company_name,
+                title=row.get("name") or row.get("title") or "Untitled",
+                description=row.get("jobAd", {}).get("sections", {}).get("jobDescription", {}).get("text", "") if isinstance(row.get("jobAd"), dict) else "",
+                location=location,
+                country=country,
+                posted_at=normalize_posted_at(row.get("releasedDate") or row.get("postedDate")),
+                apply_url=apply_url,
+            ))
+        return jobs
+
+    if board.provider == "remoteok":
+        response = await client.get(REMOTEOK_URL, timeout=30)
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list):
+            raise ValueError("Remote OK returned an invalid jobs list")
+        jobs = []
+        for row in payload:
+            if not isinstance(row, dict) or not row.get("id") or not row.get("position"):
+                continue
+            apply_url = row.get("apply_url") or row.get("url")
+            if not apply_url:
+                continue
+            location = row.get("location") or "Remote"
+            jobs.append(JobIn(
+                source="remoteok",
+                source_job_id=f"remoteok:{row['id']}",
+                company=row.get("company") or board.company_name,
+                title=row.get("position") or "Untitled",
+                description=row.get("description") or "",
+                location=location,
+                country=infer_country(location),
+                posted_at=normalize_posted_at(row.get("date")),
+                apply_url=apply_url,
+            ))
         return jobs
 
     if board.provider == "recruitee":

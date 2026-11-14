@@ -4,7 +4,7 @@ import asyncio
 import httpx
 
 from app.schemas import BoardSource
-from app.discovery import discover_board, discover_all
+from app.discovery import discover_board, discover_all, infer_country, normalize_posted_at
 
 
 def test_greenhouse_job_extraction():
@@ -16,6 +16,7 @@ def test_greenhouse_job_extraction():
                 "content": "Build backend applications",
                 "location": {"name": "Bangalore, India"},
                 "absolute_url": "https://boards.greenhouse.io/acme/jobs/12345",
+                "first_published": "2026-11-12T09:30:00Z",
             }
         ]
     }
@@ -56,6 +57,7 @@ def test_lever_job_extraction():
                 "commitment": "Full-time",
             },
             "hostedUrl": "https://jobs.lever.co/acme/lever-123",
+            "createdAt": 1794475800000,
         }
     ]
 
@@ -81,6 +83,7 @@ def test_lever_job_extraction():
         assert jobs[0].location == "Bangalore"
         assert jobs[0].country == "India"
         assert jobs[0].employment_type == "Full-time"
+        assert jobs[0].posted_at == "2026-11-12T09:30:00+00:00"
 
     asyncio.run(run())
 
@@ -312,3 +315,21 @@ def test_ashby_job_extraction():
         )
 
     asyncio.run(run())
+
+
+
+def test_country_inference_does_not_match_indiana_as_india():
+    assert infer_country("Indianapolis, Indiana, USA") == "USA"
+    assert infer_country("Indiana") == ""
+
+
+def test_country_inference_recognizes_bengaluru():
+    assert infer_country("Bengaluru, Karnataka") == "India"
+
+
+def test_posted_at_normalizes_epoch_milliseconds():
+    assert normalize_posted_at(1794475800000) == "2026-11-12T09:30:00+00:00"
+
+
+def test_posted_at_rejects_invalid_values():
+    assert normalize_posted_at("not-a-date") is None

@@ -139,3 +139,48 @@ def test_workable_public_careers_feed_extraction():
     assert jobs[0].salary_currency == "INR"
     assert jobs[0].posted_at == "2026-11-13T10:00:00+00:00"
     assert str(jobs[0].apply_url) == "https://apply.workable.com/acme/j/PY123/"
+
+def test_personio_public_xml_feed_extraction():
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <workzag-jobs>
+      <position>
+        <id>987</id>
+        <name>Backend Engineer</name>
+        <office>Bengaluru, India</office>
+        <department>Engineering</department>
+        <employmentType>permanent</employmentType>
+        <createdAt>2026-11-12T09:00:00+00:00</createdAt>
+        <jobDescriptions>
+          <jobDescription>
+            <name>Your tasks</name>
+            <value><![CDATA[Build reliable APIs.]]></value>
+          </jobDescription>
+          <jobDescription>
+            <name>Requirements</name>
+            <value><![CDATA[Python and SQL experience.]]></value>
+          </jobDescription>
+        </jobDescriptions>
+      </position>
+    </workzag-jobs>
+    """
+
+    def handler(request):
+        assert request.url.host == "acme.jobs.personio.de"
+        assert request.url.path == "/xml"
+        assert request.url.params["language"] == "en"
+        return httpx.Response(200, text=xml, request=request)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            board = BoardSource(provider="personio", slug="acme", company_name="Acme")
+            return await discover_board(client, board)
+
+    jobs = asyncio.run(run())
+    assert len(jobs) == 1
+    assert jobs[0].source_job_id == "personio:acme:987"
+    assert jobs[0].title == "Backend Engineer"
+    assert jobs[0].country == "India"
+    assert jobs[0].employment_type == "permanent"
+    assert jobs[0].posted_at == "2026-11-12T09:00:00+00:00"
+    assert "Build reliable APIs." in jobs[0].description
+    assert str(jobs[0].apply_url) == "https://acme.jobs.personio.de/job/987"

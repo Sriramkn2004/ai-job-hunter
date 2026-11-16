@@ -59,6 +59,11 @@ export default function App() {
   const [applicationBusy, setApplicationBusy] = useState(false);
   const [applicationMessage, setApplicationMessage] = useState("");
   const [submissionReferences, setSubmissionReferences] = useState({});
+  const [adzunaCountry, setAdzunaCountry] = useState("in");
+  const [adzunaWhat, setAdzunaWhat] = useState("Python Developer");
+  const [adzunaWhere, setAdzunaWhere] = useState("Bangalore");
+  const [adzunaBusy, setAdzunaBusy] = useState(false);
+  const [adzunaMessage, setAdzunaMessage] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -189,6 +194,29 @@ export default function App() {
     }
   }
 
+  async function runAdzunaSearch() {
+    if (!adzunaWhat.trim()) {
+      setAdzunaMessage("Enter a job title or keyword.");
+      return;
+    }
+    setAdzunaBusy(true);
+    setAdzunaMessage("");
+    try {
+      const params = new URLSearchParams({
+        country: adzunaCountry,
+        what: adzunaWhat.trim(),
+        where: adzunaWhere.trim(),
+      });
+      const result = await request(`${API}/discovery/adzuna?${params.toString()}`, { method: "POST" });
+      setAdzunaMessage(`Found ${result.discovered} · saved ${result.inserted} new · ${result.duplicates} duplicates`);
+      await load();
+    } catch (err) {
+      setAdzunaMessage(err.message || "Adzuna search failed. Check API credentials in .env.");
+    } finally {
+      setAdzunaBusy(false);
+    }
+  }
+
   async function runScan() {
     setScanning(true);
     setError("");
@@ -241,6 +269,17 @@ export default function App() {
           </label>;
         })}</div>
         <div className="catalog-actions"><span>{importMessage || "Import verifies the selected public feed and saves only reachable boards."}</span><button className="button primary" onClick={importSelectedBoards} disabled={!selectedBoards.length || importing}>{importing ? "Checking feeds…" : `Import selected (${selectedBoards.length})`}</button></div>
+      </section>
+
+      <section className="content-section adzuna-section">
+        <div className="section-heading"><div><p className="eyebrow">AGGREGATOR SEARCH</p><h2>Search India & USA jobs</h2><p>Run an on-demand Adzuna search. Add your own API credentials in the private .env file.</p></div><span className="count-pill">Optional API</span></div>
+        <div className="filters adzuna-filters">
+          <label className="select-box"><Globe2 size={16} /><select value={adzunaCountry} onChange={(event) => { setAdzunaCountry(event.target.value); setAdzunaWhere(event.target.value === "in" ? "Bangalore" : "United States"); }}><option value="in">India</option><option value="us">USA</option></select></label>
+          <label className="search-box"><Search size={17} /><input value={adzunaWhat} onChange={(event) => setAdzunaWhat(event.target.value)} placeholder="Role or keywords" /></label>
+          <label className="search-box"><Globe2 size={17} /><input value={adzunaWhere} onChange={(event) => setAdzunaWhere(event.target.value)} placeholder="City or region" /></label>
+          <button className="button primary" onClick={runAdzunaSearch} disabled={adzunaBusy}>{adzunaBusy ? "Searching…" : "Search jobs"}</button>
+        </div>
+        {adzunaMessage && <p className="list-footnote">{adzunaMessage}</p>}
       </section>
 
       <section className="content-section" id="jobs">

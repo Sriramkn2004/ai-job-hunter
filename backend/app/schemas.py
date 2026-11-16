@@ -26,7 +26,7 @@ class Preferences(BaseModel):
     salary_unknown_policy: Literal["review", "skip"] = "review"
 
 class BoardSource(BaseModel):
-    provider: Literal["greenhouse", "lever", "ashby"]
+    provider: Literal["greenhouse", "lever", "ashby", "recruitee", "smartrecruiters", "remoteok", "workable", "personio"]
     slug: str = Field(min_length=1, max_length=120)
     company_name: str = Field(min_length=1, max_length=200)
 
@@ -54,3 +54,40 @@ class Screening(BaseModel):
 
 class JobOut(JobIn):
     screening: Screening | None = None
+
+
+class CatalogBoardSelection(BaseModel):
+    """A selection from the curated catalog; company names are server-controlled."""
+    provider: Literal["greenhouse", "lever", "ashby", "recruitee", "smartrecruiters", "remoteok", "workable", "personio"]
+    slug: str = Field(min_length=1, max_length=120)
+
+
+class ApplicationDraftIn(BaseModel):
+    source_job_id: str = Field(min_length=1, max_length=300)
+    candidate_email: str = Field(min_length=5, max_length=254)
+
+
+class ApplicationUpdateIn(BaseModel):
+    cover_letter: str | None = Field(default=None, max_length=12000)
+    account_required: bool | None = None
+    account_status: Literal["not_required", "required", "created", "blocked"] | None = None
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class ApplicationOut(BaseModel):
+    id: int
+    source_job_id: str
+    candidate_email: str
+    status: str
+    cover_letter: str
+    account_required: bool
+    account_status: str
+    notes: str
+    submission_reference: str | None = None
+    approved_at: str | None = None
+    submitted_at: str | None = None
+    created_at: str
+    updated_at: str
+    company: str
+    title: str
+    apply_url: str | None = None

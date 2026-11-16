@@ -1,12 +1,28 @@
 services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
   api:
     build: ./backend
     env_file: .env
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     volumes:
       - ./backend:/app
     restart: unless-stopped
@@ -15,8 +31,10 @@ services:
     command: celery -A app.celery_app.celery_app worker --loglevel=INFO --concurrency=2
     env_file: .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app
     restart: unless-stopped
@@ -25,8 +43,10 @@ services:
     command: celery -A app.celery_app.celery_app beat --loglevel=INFO
     env_file: .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app
     restart: unless-stopped
@@ -35,11 +55,21 @@ services:
     environment:
       POSTGRES_DB: jobhunter
       POSTGRES_USER: jobhunter
-      POSTGRES_PASSWORD: change-me
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobhunter -d jobhunter"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
   redis:
     image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 volumes:
   postgres_data:

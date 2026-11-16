@@ -86,3 +86,60 @@ class NotificationRecord(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class BoardSourceHealthRecord(Base):
+    __tablename__ = "board_source_health"
+    __table_args__ = (
+        UniqueConstraint("provider", "slug", name="uq_board_health_provider_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    last_checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_job_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class ApplicationRecord(Base):
+    __tablename__ = "applications"
+    __table_args__ = (
+        UniqueConstraint("source_job_id", name="uq_application_source_job"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_job_id: Mapped[str] = mapped_column(
+        ForeignKey("jobs.source_job_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    candidate_email: Mapped[str] = mapped_column(String(254), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="draft")
+    cover_letter: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    account_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    account_status: Mapped[str] = mapped_column(String(40), nullable=False, default="not_required")
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    submission_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class ApplicationOutcomeRecord(Base):
+    __tablename__ = "application_outcomes"
+    __table_args__ = (UniqueConstraint("application_id", name="uq_application_outcome_application"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    application_id: Mapped[int] = mapped_column(ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    outcome: Mapped[str] = mapped_column(String(40), nullable=False, default="pending")
+    interview_stage: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    offered_salary: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    outcome_notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

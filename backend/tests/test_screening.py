@@ -124,3 +124,66 @@ def test_india_salary_below_threshold_is_skipped():
         Preferences(),
     )
     assert result.status == "skipped"
+
+
+
+def test_india_maximum_salary_below_threshold_is_skipped():
+    result = evaluate_job(
+        make_job(
+            country="India",
+            currency="INR",
+            salary_min=None,
+            salary_max=1_000_000,
+            period="year",
+            job_id="india-max-low",
+        ),
+        Preferences(),
+    )
+    assert result.status == "skipped"
+
+
+def test_india_maximum_salary_at_or_above_threshold_requires_review():
+    result = evaluate_job(
+        make_job(
+            country="India",
+            currency="INR",
+            salary_min=None,
+            salary_max=2_000_000,
+            period="year",
+            job_id="india-max-high",
+        ),
+        Preferences(),
+    )
+    assert result.status == "review"
+    assert "Minimum salary is not disclosed" in result.missing_information
+
+
+def test_usa_maximum_salary_below_threshold_is_skipped():
+    result = evaluate_job(
+        make_job(
+            country="USA",
+            currency="USD",
+            salary_min=None,
+            salary_max=30_000,
+            period="year",
+            job_id="usa-max-low",
+        ),
+        Preferences(),
+    )
+    assert result.status == "skipped"
+
+
+def test_usa_maximum_salary_at_or_above_threshold_requires_review():
+    result = evaluate_job(
+        make_job(
+            country="USA",
+            currency="USD",
+            salary_min=None,
+            salary_max=60_000,
+            period="year",
+            job_id="usa-max-high",
+        ),
+        Preferences(),
+    )
+    assert result.status == "review"
+    assert "Minimum salary is not disclosed" in result.missing_information

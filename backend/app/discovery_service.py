@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.database import Base, SessionLocal, engine
 from app.discovery import discover_all_with_report
-from app.models import BoardSourceRecord, JobRecord, NotificationRecord, PreferencesRecord
+from app.models import BoardSourceRecord, BoardSourceHealthRecord, JobRecord, NotificationRecord, PreferencesRecord
 from app.schemas import BoardSource, Preferences
 from app.notifications import build_job_alert, send_telegram_message
 
@@ -76,6 +76,39 @@ async def run_discovery_cycle() -> dict:
 
         report = await discover_all_with_report(boards)
         jobs = report.jobs
+        now = datetime.now(timezone.utc)
+        failures_by_key = {
+            (failure.provider, failure.slug): failure.error
+            for failure in report.failures
+        }
+        jobs_by_key = report.board_job_counts
+
+        for board in boards:
+            key = (board.provider, board.slug)
+            health = db.scalar(
+                select(BoardSourceHealthRecord).where(
+                    BoardSourceHealthRecord.provider == board.provider,
+                    BoardSourceHealthRecord.slug == board.slug,
+                )
+            )
+            if health is None:
+                health = BoardSourceHealthRecord(
+                    provider=board.provider,
+                    slug=board.slug,
+                    last_checked_at=now,
+                    last_job_count=0,
+                )
+                db.add(health)
+            health.last_checked_at = now
+            health.last_error = failures_by_key.get(key)
+            health.last_job_count = jobs_by_key.get(key, 0)
+            if key in failures_by_key:
+                health.consecutive_failures += 1
+            else:
+                health.last_success_at = now
+                health.consecutive_failures = 0
+        # Persist health even when a board returns zero jobs (save_job may never commit).
+        db.commit()
         inserted = duplicates = 0
         for job in jobs:
             _, created = save_job(db, job, preferences)

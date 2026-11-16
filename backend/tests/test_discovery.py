@@ -4,7 +4,7 @@ import asyncio
 import httpx
 
 from app.schemas import BoardSource
-from app.discovery import discover_board, discover_all
+from app.discovery import discover_board, discover_all, infer_country, normalize_posted_at
 
 
 def test_greenhouse_job_extraction():
@@ -16,6 +16,7 @@ def test_greenhouse_job_extraction():
                 "content": "Build backend applications",
                 "location": {"name": "Bangalore, India"},
                 "absolute_url": "https://boards.greenhouse.io/acme/jobs/12345",
+                "first_published": "2026-11-12T09:30:00Z",
             }
         ]
     }
@@ -40,6 +41,7 @@ def test_greenhouse_job_extraction():
         assert jobs[0].company == "Acme"
         assert jobs[0].title == "Python Developer"
         assert jobs[0].location == "Bangalore, India"
+        assert jobs[0].country == "India"
 
     asyncio.run(run())
 
@@ -55,6 +57,7 @@ def test_lever_job_extraction():
                 "commitment": "Full-time",
             },
             "hostedUrl": "https://jobs.lever.co/acme/lever-123",
+            "createdAt": 1794475800000,
         }
     ]
 
@@ -78,7 +81,9 @@ def test_lever_job_extraction():
         assert jobs[0].company == "Acme"
         assert jobs[0].title == "Backend Developer"
         assert jobs[0].location == "Bangalore"
+        assert jobs[0].country == "India"
         assert jobs[0].employment_type == "Full-time"
+        assert jobs[0].posted_at == "2026-11-12T09:30:00+00:00"
 
     asyncio.run(run())
 
@@ -302,7 +307,7 @@ def test_ashby_job_extraction():
         assert jobs[0].location == "Bangalore, India"
         assert jobs[0].country == "India"
         assert jobs[0].employment_type == "FullTime"
-        assert jobs[0].posted_at == "2026-11-14T08:00:00Z"
+        assert jobs[0].posted_at == "2026-11-14T08:00:00+00:00"
 
         # Pydantic converts this field to HttpUrl.
         assert str(jobs[0].apply_url) == (
@@ -310,3 +315,62 @@ def test_ashby_job_extraction():
         )
 
     asyncio.run(run())
+
+
+
+def test_country_inference_does_not_match_indiana_as_india():
+    assert infer_country("Indianapolis, Indiana, USA") == "USA"
+    assert infer_country("Indiana") == ""
+
+
+def test_country_inference_recognizes_bengaluru():
+    assert infer_country("Bengaluru, Karnataka") == "India"
+
+
+def test_posted_at_normalizes_epoch_milliseconds():
+    assert normalize_posted_at(1794475800000) == "2026-11-12T09:30:00+00:00"
+
+
+def test_posted_at_rejects_invalid_values():
+    assert normalize_posted_at("not-a-date") is None
+
+
+def test_recruitee_job_extraction(monkeypatch):
+    payload = {
+        "offers": [{
+            "id": 123,
+            "title": "Data Engineer",
+            "description": "Build data pipelines",
+            "location": "Bengaluru, India",
+            "careers_apply_url": "https://acme.recruitee.com/o/data-engineer",
+            "published_at": "2026-11-13T10:00:00Z",
+        }]
+    }
+
+    def handler(request):
+        assert request.url.host == "acme.recruitee.com"
+        return httpx.Response(200, json=payload, request=request)
+
+
+    boards = [
+        BoardSource(provider="recruitee", slug="acme", company_name="Acme"),
+    ]
+    import app.discovery as discovery_module
+    original_client = discovery_module.httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return original_client(*args, **kwargs)
+
+    monkeypatch.setattr(discovery_module.httpx, "AsyncClient", mocked_client)
+    report = asyncio.run(discovery_module.discover_all_with_report(boards))
+
+    assert report.board_job_counts == {
+        ("recruitee", "acme"): 1,
+    }
+    assert report.boards_checked == 1
+    assert report.boards_succeeded == 1
+    assert report.boards_failed == 0
+    assert report.jobs[0].source == "recruitee"
+    assert report.jobs[0].title == "Data Engineer"
+    assert report.jobs[0].country == "India"

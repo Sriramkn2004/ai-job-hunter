@@ -64,6 +64,13 @@ export default function App() {
   const [adzunaWhere, setAdzunaWhere] = useState("Bangalore");
   const [adzunaBusy, setAdzunaBusy] = useState(false);
   const [adzunaMessage, setAdzunaMessage] = useState("");
+  const [careerResume, setCareerResume] = useState("");
+  const [careerJobId, setCareerJobId] = useState("");
+  const [careerMode, setCareerMode] = useState("tailor-resume");
+  const [careerResult, setCareerResult] = useState("");
+  const [careerBusy, setCareerBusy] = useState(false);
+  const [outcomeDrafts, setOutcomeDrafts] = useState({});
+
 
   const load = useCallback(async () => {
     setError("");
@@ -194,6 +201,36 @@ export default function App() {
     }
   }
 
+  async function runCareerTool() {
+    if (!careerJobId) { setCareerResult("Select a job first."); return; }
+    if (careerResume.trim().length < 100) { setCareerResult("Paste at least 100 characters of your resume so the AI can ground its suggestions in your actual experience."); return; }
+    setCareerBusy(true); setCareerResult("");
+    try {
+      const result = await request(`${API}/career/${careerMode}`, {
+        method: "POST",
+        body: JSON.stringify({ source_job_id: careerJobId, resume_text: careerResume }),
+      });
+      setCareerResult(careerMode === "tailor-resume" ? result.tailored_resume : result.preparation);
+    } catch (err) { setCareerResult(err.message || "Career AI request failed."); }
+    finally { setCareerBusy(false); }
+  }
+
+  async function saveOutcome(application) {
+    const draft = outcomeDrafts[application.id] || {};
+    try {
+      await request(`${API}/career/applications/${application.id}/outcome`, {
+        method: "PUT",
+        body: JSON.stringify({
+          outcome: draft.outcome || "pending",
+          interview_stage: draft.interview_stage || "",
+          offered_salary: draft.offered_salary || null,
+          outcome_notes: draft.outcome_notes || "",
+        }),
+      });
+      setApplicationMessage(`Outcome saved for ${application.title} at ${application.company}.`);
+    } catch (err) { setApplicationMessage(err.message || "Could not save application outcome."); }
+  }
+
   async function runAdzunaSearch() {
     if (!adzunaWhat.trim()) {
       setAdzunaMessage("Enter a job title or keyword.");
@@ -302,6 +339,16 @@ export default function App() {
         <div className="pagination"><span>Showing {jobs.length ? offset + 1 : 0}–{offset + jobs.length} jobs</span><div><button className="button secondary" onClick={() => setOffset((value) => Math.max(0, value - 50))} disabled={offset === 0 || loading}>Previous</button><button className="button secondary" onClick={() => setOffset((value) => value + 50)} disabled={!hasMore || loading}>Next</button></div></div><p className="list-footnote">Listings link to their original source; verify details before applying.</p>
       </section>
 
+      <section className="content-section" id="career-ai">
+        <div className="section-heading"><div><p className="eyebrow">CAREER INTELLIGENCE</p><h2>AI career assistant</h2><p>Tailor a resume draft or practise for a selected role. Requires OPENAI_API_KEY in your private .env file.</p></div><span className="count-pill">Candidate review required</span></div>
+        <div className="career-panel">
+          <label className="career-label">Target job<select value={careerJobId} onChange={(event) => setCareerJobId(event.target.value)}><option value="">Select a discovered job</option>{jobs.filter((job) => ["matched", "review"].includes(job.screening?.status)).map((job) => <option key={job.source_job_id} value={job.source_job_id}>{job.title} · {job.company}</option>)}</select></label>
+          <label className="career-label">Your resume text<textarea value={careerResume} onChange={(event) => setCareerResume(event.target.value)} rows={7} placeholder="Paste your current resume text here. It is sent to the configured AI provider for this request and is not saved by this feature." /></label>
+          <div className="career-actions"><select value={careerMode} onChange={(event) => setCareerMode(event.target.value)}><option value="tailor-resume">Tailor resume for this job</option><option value="interview-prep">Generate interview preparation</option></select><button className="button primary" onClick={runCareerTool} disabled={careerBusy}>{careerBusy ? "Generating…" : "Generate"}</button></div>
+          {careerResult && <pre className="career-result">{careerResult}</pre>}
+        </div>
+      </section>
+
       <section className="content-section" id="applications">
         <div className="section-heading"><div><p className="eyebrow">APPLICATION PIPELINE</p><h2>Application tracker</h2><p>Prepare truthful, editable applications and track account setup and confirmed submissions.</p></div><span className="count-pill">{applications.length} applications</span></div>
         <div className="application-profile">
@@ -328,6 +375,16 @@ export default function App() {
             {application.status === "approved" && <div className="submission-note"><b>Approved, not submitted.</b> No authorized submission connector is configured for this employer yet. Complete the employer's form yourself, then record its confirmation below.</div>}
             {application.status === "approved" && <div className="record-submission"><input value={submissionReferences[application.id] || ""} onChange={(event) => setSubmissionReferences((rows) => ({ ...rows, [application.id]: event.target.value }))} placeholder="Employer confirmation URL or reference" /><button className="button secondary" onClick={() => recordSubmission(application)} disabled={applicationBusy}>Record confirmed submission</button></div>}
             {application.status === "submitted" && <p className="job-reason">Recorded submission: {application.submission_reference}</p>}
+            <div className="outcome-editor">
+              <b>Application outcome</b>
+              <select value={outcomeDrafts[application.id]?.outcome || "pending"} onChange={(event) => setOutcomeDrafts((rows) => ({ ...rows, [application.id]: { ...rows[application.id], outcome: event.target.value } }))}>
+                <option value="pending">Pending</option><option value="interview">Interview</option><option value="offer">Offer</option><option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option><option value="no_response">No response</option>
+              </select>
+              <input value={outcomeDrafts[application.id]?.interview_stage || ""} onChange={(event) => setOutcomeDrafts((rows) => ({ ...rows, [application.id]: { ...rows[application.id], interview_stage: event.target.value } }))} placeholder="Interview stage (e.g. technical round)" />
+              <input value={outcomeDrafts[application.id]?.offered_salary || ""} onChange={(event) => setOutcomeDrafts((rows) => ({ ...rows, [application.id]: { ...rows[application.id], offered_salary: event.target.value } }))} placeholder="Offer salary (optional)" />
+              <textarea rows={2} value={outcomeDrafts[application.id]?.outcome_notes || ""} onChange={(event) => setOutcomeDrafts((rows) => ({ ...rows, [application.id]: { ...rows[application.id], outcome_notes: event.target.value } }))} placeholder="Outcome notes / recruiter feedback" />
+              <button className="button secondary" onClick={() => saveOutcome(application)}>Save outcome</button>
+            </div>
           </article>)}</div>}
       </section>
 

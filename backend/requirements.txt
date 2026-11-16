@@ -8,3 +8,4 @@ python-telegram-bot>=21,<23
 celery[redis]>=5.4,<6
 pytest>=8,<9
 psycopg[binary]>=3.2,<4
+openai>=1.50,<3

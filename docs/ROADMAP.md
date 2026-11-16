@@ -14,10 +14,10 @@
 - [ ] Source health metrics, per-source retry/backoff and more permitted source adapters
 - [ ] Telegram inline approval callbacks
 - [ ] Resume upload, parsing and structured candidate profile
-- [ ] AI-assisted truthful resume tailoring and answer drafting
-- [ ] Human-in-the-loop application review and supported submission adapters
+- [x] AI-assisted truthful resume tailoring and interview preparation (requires user-provided OpenAI API key)
+- [x] Human-in-the-loop application review and manual outcome tracking\n- [ ] Authorized employer-specific application submission adapters (provider/API access required)
 - [ ] React dashboard, job details, skipped reasons and analytics
-- [ ] Cloud deployment, authentication, secrets management, monitoring and backups
+- [ ] Multi-user authentication and tenant isolation\n- [ ] Cloud deployment, production secrets management, monitoring and backups
 
 ## Production release gates
 Before enabling production applications: add authentication and authorization, encrypt sensitive profile/resume data, introduce migrations, prevent duplicate submissions, require explicit confirmation for sensitive declarations, validate destination domains, and capture verifiable submission confirmations.

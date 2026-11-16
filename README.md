@@ -85,5 +85,13 @@ uvicorn app.main:app --reload
 
 Run tests from `backend` with `python -m pytest -q`.
 
+## Career intelligence and outcomes
+- `POST /api/v1/career/tailor-resume` — create an ATS-readable, job-specific resume draft from resume text supplied in the request. The AI is instructed not to invent facts; review every edit.
+- `POST /api/v1/career/interview-prep` — generate role-specific practice questions and answer guidance from the job description and optional resume.
+- `PUT /api/v1/career/applications/{application_id}/outcome` — track pending, interview, offer, rejected, withdrawn or no-response outcomes, interview stage, offered salary and notes.
+- `GET /api/v1/career/applications/outcomes` — list recorded outcomes.
+
+These AI endpoints require your own `OPENAI_API_KEY`. Resume text is sent to the configured AI provider for that request and is not stored by these endpoints. Candidate review is mandatory; this does not auto-submit applications.
+
 ## Project status
 This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, richer resume tailoring and authorized employer-specific submission integrations remain future milestones. The current application tracker is intended for a locally run personal instance. Do not publish the API or dashboard to the internet without adding authentication, authorization, secure profile storage and deployment hardening.

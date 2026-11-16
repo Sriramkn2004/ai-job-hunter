@@ -49,6 +49,9 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="AI Job Hunter API", version="0.3.0", lifespan=lifespan)
 
+from app.career_tools import router as career_tools_router
+app.include_router(career_tools_router)
+
 
 def to_job_out(record: JobRecord) -> JobOut:
     return JobOut(

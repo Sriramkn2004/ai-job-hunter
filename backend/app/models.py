@@ -130,3 +130,16 @@ class ApplicationRecord(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+
+
+class ApplicationOutcomeRecord(Base):
+    __tablename__ = "application_outcomes"
+    __table_args__ = (UniqueConstraint("application_id", name="uq_application_outcome_application"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    application_id: Mapped[int] = mapped_column(ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    outcome: Mapped[str] = mapped_column(String(40), nullable=False, default="pending")
+    interview_stage: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    offered_salary: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    outcome_notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

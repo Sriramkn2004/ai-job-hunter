@@ -353,8 +353,7 @@ def test_recruitee_job_extraction(monkeypatch):
 
 
     boards = [
-        BoardSource(provider="greenhouse", slug="acme", company_name="Acme"),
-        BoardSource(provider="lever", slug="globex", company_name="Globex"),
+        BoardSource(provider="recruitee", slug="acme", company_name="Acme"),
     ]
     import app.discovery as discovery_module
     original_client = discovery_module.httpx.AsyncClient
@@ -367,6 +366,11 @@ def test_recruitee_job_extraction(monkeypatch):
     report = asyncio.run(discovery_module.discover_all_with_report(boards))
 
     assert report.board_job_counts == {
-        ("greenhouse", "acme"): 1,
-        ("lever", "globex"): 0,
+        ("recruitee", "acme"): 1,
     }
+    assert report.boards_checked == 1
+    assert report.boards_succeeded == 1
+    assert report.boards_failed == 0
+    assert report.jobs[0].source == "recruitee"
+    assert report.jobs[0].title == "Data Engineer"
+    assert report.jobs[0].country == "India"

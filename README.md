@@ -27,7 +27,7 @@ A cloud-first job discovery and application assistant. It discovers listings fro
 1. Copy `.env.example` to `.env`.
 2. Add your Telegram bot token and chat ID (instructions below); optionally add Adzuna API credentials for aggregator searches.
 3. Run `docker compose up --build -d`.
-4. Open the dashboard at `http://localhost:3000` and API docs at `http://localhost:8000/docs`.
+4. Open the dashboard at `http://localhost:3000` and API docs at `http://localhost:8000/docs`. Compose binds both ports to `127.0.0.1` so the unauthenticated personal app is not exposed to other devices on your network.
 5. Browse the curated employer directory with `GET /api/v1/sources/catalog`; import selected entries with `POST /api/v1/sources/catalog/import`, which rechecks each live feed before saving.
 6. Validate public company-board feeds with `POST /api/v1/sources/boards/validate` before registering them; validation reports live listing counts and does not save anything.
 7. Register one or more company boards using `POST /api/v1/sources/boards` or bulk import using `POST /api/v1/sources/boards/bulk`.
@@ -86,4 +86,4 @@ uvicorn app.main:app --reload
 Run tests from `backend` with `python -m pytest -q`.
 
 ## Project status
-This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, richer resume tailoring and authorized employer-specific submission integrations remain future milestones. The current application tracker is intended for a locally run personal instance.
+This is an active development project, not yet production-ready. Authentication, database migrations, cloud deployment, secure candidate profile storage, richer resume tailoring and authorized employer-specific submission integrations remain future milestones. The current application tracker is intended for a locally run personal instance. Do not publish the API or dashboard to the internet without adding authentication, authorization, secure profile storage and deployment hardening.

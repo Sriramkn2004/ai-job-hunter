@@ -61,6 +61,8 @@ def test_application_draft_approval_and_submission_tracking():
         )
         assert draft.status == "draft"
         assert "Vontier" in draft.cover_letter
+        assert "Information Protection & Automation Intern" in draft.cover_letter
+        assert "10 operating companies" in draft.cover_letter
         assert "10,000" in draft.cover_letter
         assert "20 minutes" in draft.cover_letter
         assert "face-recognition-based attendance system" in draft.cover_letter

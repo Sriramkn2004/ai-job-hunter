@@ -55,7 +55,7 @@ services:
     environment:
       POSTGRES_DB: jobhunter
       POSTGRES_USER: jobhunter
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only-change-this}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

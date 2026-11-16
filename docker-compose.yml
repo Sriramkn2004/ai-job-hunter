@@ -2,7 +2,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     depends_on:
       api:
         condition: service_healthy
@@ -11,7 +11,7 @@ services:
     build: ./backend
     env_file: .env
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy

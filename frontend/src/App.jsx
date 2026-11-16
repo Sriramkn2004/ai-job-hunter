@@ -67,12 +67,13 @@ export default function App() {
       if (query.trim()) params.set("q", query.trim());
       if (status) params.set("status", status);
       if (country) params.set("country", country);
-      const [stats, jobRows, boardRows, prefs, catalogData] = await Promise.all([
+      const [stats, jobRows, boardRows, prefs, catalogData, applicationRows] = await Promise.all([
         request(`${API}/monitoring/status`),
         request(`${API}/jobs?${params.toString()}`),
         request(`${API}/monitoring/boards`),
         request(`${API}/preferences`),
         request(`${API}/sources/catalog`),
+        request(`${API}/applications`),
       ]);
       setSummary(stats);
       setJobs(jobRows);
